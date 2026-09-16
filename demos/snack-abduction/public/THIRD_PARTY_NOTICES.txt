@@ -1,0 +1,13 @@
+Snack Abduction third-party notices
+
+Three.js (0.169.0) is distributed under the MIT License. Full bundled JavaScript
+dependency notices are emitted into third-party-licenses.txt by the production
+build. Keep that file with the distribution.
+
+Fredoka and DM Sans are distributed through Fontsource under the SIL Open Font
+License 1.1. The original copyright statements and full terms are included in:
+
+  licenses/Fredoka-OFL.txt
+  licenses/DM-Sans-OFL.txt
+
+Keep these notices and licenses with redistributed demo builds.

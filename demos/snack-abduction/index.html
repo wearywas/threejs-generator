@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2dfce" />
+    <meta name="description" content="A tiny tabletop heist. Pilot a UFO, abduct the snacks, and beat the cleaning robot. Built from generated Three.js source code." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Snack Abduction — a tiny tabletop heist</title>
+  </head>
+  <body>
+    <div id="app" data-phase="ready">
+      <header class="header">
+        <a class="brand" href="./" aria-label="Snack Abduction home">
+          <svg viewBox="0 0 56 44" aria-hidden="true"><path d="M17 20a11 11 0 0 1 22 0"/><ellipse cx="28" cy="24" rx="23" ry="8"/><path d="m19 36-3 5m12-4v5m9-6 3 5"/></svg>
+          <span>Snack abduction<span class="brand-sub">A tiny tabletop heist</span></span>
+        </a>
+        <div class="hud" id="hud" hidden>
+          <div class="score-stat"><span class="stat-label">Your haul</span><strong id="score">0</strong><span class="points-label">pts</span></div>
+          <div class="timer-stat"><svg class="timer-ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="timer-track" cx="22" cy="22" r="18"/><circle id="timer-progress" cx="22" cy="22" r="18"/></svg><strong id="time">1:30</strong></div>
+          <div class="snack-stat"><span class="stat-label">Snacks saved</span><strong><span id="saved">0</span><span class="stat-total"> / 12</span></strong></div>
+        </div>
+        <nav class="tools" aria-label="Game options">
+          <button class="text-button" id="help-button">How to play</button>
+          <button class="icon-button" id="sound-button" aria-label="Mute sound" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="sound-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off" d="m16 9 6 6m0-6-6 6"/></svg></button>
+          <button class="icon-button" id="fullscreen-button" aria-label="Enter fullscreen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button>
+          <button class="icon-button" id="pause-button" aria-label="Pause game" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
+        </nav>
+      </header>
+
+      <main>
+        <div id="stage" class="stage"></div>
+        <section class="intro" id="intro" aria-labelledby="title">
+          <div class="intro-inner">
+            <div class="orbit-mark" aria-hidden="true"><span></span><i></i></div>
+            <h1 id="title">Snack<br/>abduction<span class="title-dot">.</span></h1>
+            <p class="intro-lead">Earth has snacks.<br/>You have a tractor beam.</p>
+            <p class="intro-description">Scoop up the good stuff and stash it in your mug before the cleaning bot gets there.</p>
+            <button id="start-button" class="primary-button" disabled><span id="start-label">Warming up the saucer…</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+            <p class="round-note">90 seconds. One very hungry pilot.</p>
+            <div class="intro-controls" aria-label="Controls">
+              <div><div class="key-row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><span>Fly around</span></div>
+              <span class="control-plus" aria-hidden="true">+</span>
+              <div><kbd class="space-key">Space</kbd><span>Hold to abduct</span></div>
+            </div>
+          </div>
+        </section>
+        <div class="game-hint" id="game-hint" hidden><span class="hint-dot"></span><span id="hint-text">Hold Space to lift a snack</span></div>
+        <div class="flight-controls" id="flight-controls" hidden><span><kbd>W A S D</kbd> or <kbd>↑ ← ↓ →</kbd> to fly</span><span><kbd>Space</kbd> hold to lift · release to drop</span><span><kbd>Esc</kbd> pause</span></div>
+        <div class="touch-controls" id="touch-controls" hidden>
+          <div class="dpad" aria-label="Flight controls"><button data-dir="up" aria-label="Fly up">↑</button><button data-dir="left" aria-label="Fly left">←</button><button data-dir="down" aria-label="Fly down">↓</button><button data-dir="right" aria-label="Fly right">→</button></div>
+          <button id="touch-beam" class="beam-button">Hold<br/><strong>Beam</strong></button>
+        </div>
+        <div id="floaters" aria-hidden="true"></div>
+        <p id="announcer" class="sr-only" aria-live="polite"></p>
+        <section id="error-panel" class="error-panel" hidden role="alert"><h2>The saucer couldn't start</h2><p id="error-message"></p><button class="primary-button" id="reload-button">Try again</button></section>
+      </main>
+
+      <footer class="footer"><span class="footer-credit"><span class="code-mark" aria-hidden="true">{ }</span> Made with <strong>ThreeJS Generator</strong></span><span class="footer-note">Seven generated assets. A little playable universe.</span></footer>
+
+      <div class="modal-backdrop" id="pause-overlay" hidden>
+        <section class="modal help-modal" role="dialog" aria-modal="true" aria-labelledby="pause-title" tabindex="-1">
+          <span class="modal-decoration" aria-hidden="true">Ⅱ</span>
+          <h2 id="pause-title">A little breather.</h2>
+          <p class="modal-lead">The snacks can wait.</p>
+          <div class="instructions">
+            <p><kbd>W A S D</kbd><span><strong>Fly the saucer.</strong> Arrow keys work too.</span></p>
+            <p><kbd>Space</kbd><span><strong>Hold to lift and carry.</strong> Bigger snacks make you slower.</span></p>
+            <p><span class="instruction-cup" aria-hidden="true">⌑</span><span><strong>Release over your mug to score.</strong> The ship rises over the rim automatically.</span></p>
+          </div>
+          <p class="bot-warning">Watch the cleaning bot. It sweeps up snacks and can knock yours loose.</p>
+          <div class="snack-values"><span><i class="biscuit-dot"></i> Biscuit <strong>100</strong></span><span><i class="donut-dot"></i> Doughnut <strong>250</strong></span></div>
+          <button id="resume-button" class="primary-button">Back to the snacks</button>
+          <button id="restart-button" class="secondary-button" hidden>Start a fresh round</button>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="result-overlay" hidden>
+        <section class="modal result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title" tabindex="-1">
+          <div class="result-orbit" aria-hidden="true"><span>✦</span></div>
+          <h2 id="result-title">The snacks are safe.</h2>
+          <p id="result-description" class="modal-lead">A small step for a saucer. A giant leap for snack time.</p>
+          <div class="result-score"><strong id="final-score">0</strong><span>points stashed</span></div>
+          <div class="result-breakdown"><div><strong id="final-saved">0</strong><span>you saved</span></div><div><strong id="final-swept">0</strong><span>bot swept</span></div><div><strong id="final-left">0</strong><span>left behind</span></div></div>
+          <p id="best-label" class="best-label">Personal best: <strong id="best-score">0</strong></p>
+          <button id="replay-button" class="primary-button">One more bite</button>
+          <button id="home-button" class="secondary-button">Back to the desk</button>
+        </section>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

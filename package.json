@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "demo:snack-abduction": "npm --prefix demos/snack-abduction run dev",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server/start.js",

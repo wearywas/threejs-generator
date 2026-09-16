@@ -36,6 +36,17 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test fresh-user and workbench flows (no provider keys)
         run: npm run test:browser
+      - name: Install Snack Abduction demo
+        run: npm --prefix demos/snack-abduction ci
+      - name: Test Snack Abduction gameplay
+        working-directory: demos/snack-abduction
+        run: npm test
+      - name: Build Snack Abduction demo
+        working-directory: demos/snack-abduction
+        run: npm run build
+      - name: Test Snack Abduction browser flows
+        working-directory: demos/snack-abduction
+        run: npm run test:browser
       - name: Preserve browser diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
@@ -44,5 +55,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            demos/snack-abduction/playwright-report/
+            demos/snack-abduction/test-results/
           retention-days: 7
           if-no-files-found: ignore

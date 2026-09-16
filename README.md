@@ -39,6 +39,19 @@ To generate your own asset, open **Connect a model** or **Model settings**, sele
 
 The app preserves the last working asset when a generation or edit fails. Generated code is executed in an isolated browser worker; geometry hints are advisory, not extra AI rejection rounds.
 
+## Play a demo
+
+[Snack Abduction](demos/snack-abduction/README.md) turns seven exported JavaScript assets into a playable tabletop UFO game. It imports the generated source directly: the saucer's emitter glows, the robot's brushes spin, and generated snacks become things you can pick up and score with. No GLBs or API key are needed to play.
+
+From the repository root:
+
+```sh
+npm --prefix demos/snack-abduction ci
+npm run demo:snack-abduction
+```
+
+Open [http://127.0.0.1:5174](http://127.0.0.1:5174). The demo has its own dependencies and build, so you can run it alongside the generator. See [demos](demos/README.md) for the source and checks.
+
 ## Learn more
 
 - [User guide](docs/USER_GUIDE.md): keys, costs, controls, saving/recovery, imports, exports, batching and troubleshooting.
