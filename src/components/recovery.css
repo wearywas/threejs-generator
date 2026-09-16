@@ -1,0 +1,20 @@
+.workspace-recovery {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 22px;
+  border-block: 1px solid var(--studio-border);
+  background: var(--studio-surface);
+  color: var(--studio-text);
+  font-size: 13px;
+}
+.workspace-recovery > div:first-child { flex: 1 1 340px; min-width: 0; }
+.workspace-recovery p { margin: 4px 0 0; color: var(--studio-muted); }
+.workspace-recovery .recovery-prompt { color: var(--studio-text); overflow-wrap: anywhere; }
+.recovery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.recovery-warning p, .workspace-recovery [role="alert"] { color: var(--studio-accent); }
+.recovery-status { padding: 12px 16px; font-size: 12px; color: var(--studio-text); border-bottom: 1px solid var(--studio-border); }
+.recovery-status span { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; color: var(--studio-muted); }

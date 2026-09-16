@@ -1,0 +1,140 @@
+{
+  "documentVersion": 1,
+  "mode": "procedural",
+  "prompt": "A stylized cluster of woodland mushrooms growing from a mossy fallen log. Five warm russet caps with pale undersides, varied stem heights, a few small young mushrooms, layered bark and visible growth rings on the cut log ends. Cohesive, solid low-poly geometry, a readable silhouette, and a compact game-ready prop.",
+  "family": "groundCover",
+  "spec": null,
+  "schema": {
+    "scale": {
+      "type": "number",
+      "min": 0.25,
+      "max": 3,
+      "step": 0.01,
+      "default": 1,
+      "label": "Overall Scale"
+    },
+    "capColor": {
+      "type": "color",
+      "default": "#ad4e27",
+      "label": "Cap Color"
+    },
+    "undersideColor": {
+      "type": "color",
+      "default": "#ead7af",
+      "label": "Cap Underside Color"
+    },
+    "stemColor": {
+      "type": "color",
+      "default": "#ddc79d",
+      "label": "Stem Color"
+    },
+    "barkColor": {
+      "type": "color",
+      "default": "#493127",
+      "label": "Bark Color",
+      "description": "Base bark tone; lighter overlapping scales follow this color."
+    },
+    "woodColor": {
+      "type": "color",
+      "default": "#c79559",
+      "label": "Cut Wood Color",
+      "description": "Colors the cut ends and branch tip, with coordinated darker growth rings."
+    },
+    "mossColor": {
+      "type": "color",
+      "default": "#567332",
+      "label": "Moss Color",
+      "description": "Base moss tone multiplied by seeded green patch variations."
+    },
+    "logLength": {
+      "type": "number",
+      "min": 1.8,
+      "max": 5.5,
+      "step": 0.05,
+      "default": 3.25,
+      "label": "Log Length",
+      "description": "Also adjusts mushroom spacing and moss distribution along the log."
+    },
+    "logRadius": {
+      "type": "number",
+      "min": 0.25,
+      "max": 0.85,
+      "step": 0.01,
+      "default": 0.46,
+      "label": "Log Radius",
+      "description": "Scales bark, cut ends, moss thickness, and the attached branch."
+    },
+    "matureCount": {
+      "type": "integer",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 5,
+      "label": "Mature Mushroom Count",
+      "description": "The first five use the original arrangement; additional mushrooms use seeded placement."
+    },
+    "youngCount": {
+      "type": "integer",
+      "min": 0,
+      "max": 8,
+      "step": 1,
+      "default": 3,
+      "label": "Young Mushroom Count",
+      "description": "Number of smaller, rounded button mushrooms."
+    },
+    "stemHeight": {
+      "type": "number",
+      "min": 0.4,
+      "max": 1.8,
+      "step": 0.01,
+      "default": 1,
+      "label": "Stem Height Multiplier",
+      "description": "Scales all stem heights and their natural lean while retaining height variation."
+    },
+    "capSize": {
+      "type": "number",
+      "min": 0.5,
+      "max": 1.5,
+      "step": 0.01,
+      "default": 1,
+      "label": "Cap Size Multiplier",
+      "description": "Scales cap width and dome height, with matching stem thickness."
+    },
+    "mossCount": {
+      "type": "integer",
+      "min": 0,
+      "max": 72,
+      "step": 1,
+      "default": 32,
+      "label": "Moss Patch Count",
+      "description": "Controls moss coverage; zero removes the moss."
+    },
+    "branchEnabled": {
+      "type": "boolean",
+      "default": true,
+      "label": "Show Snapped Branch"
+    }
+  },
+  "seed": 1077592584,
+  "params": {
+    "scale": 1,
+    "capColor": "#ad4e27",
+    "undersideColor": "#ead7af",
+    "stemColor": "#ddc79d",
+    "barkColor": "#493127",
+    "woodColor": "#c79559",
+    "mossColor": "#567332",
+    "logLength": 3.8,
+    "logRadius": 0.52,
+    "matureCount": 6,
+    "youngCount": 4,
+    "stemHeight": 0.9,
+    "capSize": 0.95,
+    "mossCount": 40,
+    "branchEnabled": true
+  },
+  "textureSlots": [],
+  "textures": {},
+  "restorationNotes": [],
+  "code": "function createAsset(THREE, seed, textures, params, addons) {\n  params = params || {};\n  const scale = params.scale ?? 1;\n  const capColor = params.capColor ?? '#ad4e27';\n  const undersideColor = params.undersideColor ?? '#ead7af';\n  const stemColor = params.stemColor ?? '#ddc79d';\n  const barkColor = params.barkColor ?? '#493127';\n  const woodColor = params.woodColor ?? '#c79559';\n  const mossColor = params.mossColor ?? '#567332';\n  const logLength = params.logLength ?? 3.25;\n  const logRadius = params.logRadius ?? 0.46;\n  const matureCount = Math.max(0, Math.floor(params.matureCount ?? 5));\n  const youngCount = Math.max(0, Math.floor(params.youngCount ?? 3));\n  const stemHeight = params.stemHeight ?? 1;\n  const capSize = params.capSize ?? 1;\n  const mossCount = Math.max(0, Math.floor(params.mossCount ?? 32));\n  const branchEnabled = params.branchEnabled ?? true;\n  const lengthScale = logLength / 3.25;\n  const radialScale = logRadius / 0.46;\n  const logY = 0.49 * radialScale;\n  const group = new THREE.Group();\n  group.name = 'Woodland mushrooms on mossy log';\n  let state = (Number(seed) || 1) >>> 0;\n  const random = () => {\n    state = (1664525 * state + 1013904223) >>> 0;\n    return state / 4294967296;\n  };\n  const geometries = new Set(), materials = new Set(), instances = [];\n  const geo = g => { geometries.add(g); return g; };\n  function material(color, roughness = 0.95) {\n    const m = new THREE.MeshStandardMaterial({ color, roughness, flatShading: true });\n    materials.add(m);\n    return m;\n  }\n  function mesh(g, m, x = 0, y = 0, z = 0) {\n    const object = new THREE.Mesh(g, m);\n    object.position.set(x, y, z);\n    object.castShadow = true;\n    object.receiveShadow = true;\n    group.add(object);\n    return object;\n  }\n  function paletteColor(input, reference, target) {\n    const c = new THREE.Color(input);\n    const a = new THREE.Color(reference), b = new THREE.Color(target);\n    c.r = Math.min(1, c.r * b.r / a.r);\n    c.g = Math.min(1, c.g * b.g / a.g);\n    c.b = Math.min(1, c.b * b.b / a.b);\n    return c;\n  }\n  const bark = [material(barkColor), material(paletteColor(barkColor, '#493127', '#624032')), material(paletteColor(barkColor, '#493127', '#77513a'))];\n  const wood = material(woodColor);\n  const ringMat = material(paletteColor(woodColor, '#c79559', '#916039'));\n  ringMat.side = THREE.DoubleSide;\n  const cream = material(undersideColor);\n  const stemMat = material(stemColor);\n  const mossMat = material(mossColor);\n  const capMat = material(capColor);\n  capMat.vertexColors = true;\n\n  const core = mesh(geo(new THREE.CylinderGeometry(0.44 * radialScale, logRadius, logLength, 14)), bark[0], 0, logY, 0);\n  core.rotation.z = Math.PI / 2;\n\n  // Overlapping long bark scales wrap the solid timber core.\n  for (let i = 0; i < 15; i++) {\n    const angle = i / 15 * Math.PI * 2;\n    const pieces = i % 3 === 0 ? 3 : 2;\n    for (let j = 0; j < pieces; j++) {\n      const start = -logLength / 2 + j * logLength / pieces - (j ? 0.035 * lengthScale : 0);\n      const end = Math.min(logLength / 2, start + logLength / pieces + 0.065 * lengthScale);\n      const points = [];\n      for (let k = 0; k < 3; k++) {\n        const x = start + (end - start) * k / 2;\n        for (const side of [-1, 1]) {\n          const a = angle + side * 0.23;\n          const outer = (0.48 + random() * 0.045) * radialScale;\n          points.push(new THREE.Vector3(x, logY + Math.cos(a) * outer, Math.sin(a) * outer));\n          points.push(new THREE.Vector3(x, logY + Math.cos(a) * 0.425 * radialScale, Math.sin(a) * 0.425 * radialScale));\n        }\n      }\n      mesh(geo(new addons.ConvexGeometry(points)), bark[(i + j) % bark.length]);\n    }\n  }\n\n  // Cut end grain with irregular concentric growth bands.\n  for (const sign of [-1, 1]) {\n    const x = sign * (logLength / 2 + 0.006 * radialScale);\n    const end = mesh(geo(new THREE.CylinderGeometry(0.437 * radialScale, 0.437 * radialScale, 0.014 * radialScale, 14)), wood, x, logY, 0);\n    end.rotation.z = Math.PI / 2;\n    const positions = [], indices = [];\n    for (let r = 0; r < 6; r++) {\n      const radius = 0.048 + r * 0.064;\n      const offset = positions.length / 3;\n      for (let j = 0; j < 32; j++) {\n        const a = j / 32 * Math.PI * 2;\n        const wobble = 1 + 0.055 * Math.sin(a * 3 + r * 0.36) + 0.025 * Math.cos(a * 5);\n        for (const edge of [-1, 1]) {\n          const rr = (radius * wobble + edge * (0.003 + r * 0.0005)) * radialScale;\n          positions.push(x + sign * 0.009 * radialScale, logY + 0.016 * radialScale + Math.cos(a) * rr, -0.016 * radialScale + Math.sin(a) * rr);\n        }\n      }\n      for (let j = 0; j < 32; j++) {\n        const a = offset + j * 2, b = offset + ((j + 1) % 32) * 2;\n        indices.push(a, b, a + 1, b, b + 1, a + 1);\n      }\n    }\n    const bands = geo(new THREE.BufferGeometry());\n    bands.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));\n    bands.setIndex(indices);\n    bands.computeVertexNormals();\n    mesh(bands, ringMat);\n    for (let i = 0; i < 3; i++) {\n      const a = 0.7 + i * 2.1 + random() * 0.3;\n      const crack = mesh(geo(new THREE.BoxGeometry(0.003 * radialScale, 0.12 * radialScale, 0.008 * radialScale)), bark[0], x + sign * 0.011 * radialScale, logY + Math.cos(a) * 0.365 * radialScale, Math.sin(a) * 0.365 * radialScale);\n      crack.rotation.x = a;\n    }\n  }\n\n  if (mossCount > 0) {\n    const mossGeo = geo(new THREE.IcosahedronGeometry(1, 1));\n    const moss = new THREE.InstancedMesh(mossGeo, mossMat, mossCount);\n    instances.push(moss);\n    const dummy = new THREE.Object3D();\n    const columns = Math.ceil(mossCount / 3);\n    const rows = Math.ceil(mossCount / columns);\n    for (let i = 0; i < mossCount; i++) {\n      const column = i % columns;\n      const x = ((columns > 1 ? -1.4 + column * 2.7 / (columns - 1) : -0.05) + (random() - 0.5) * 0.09) * lengthScale;\n      const angle = (Math.floor(i / columns) - (rows - 1) / 2) * 0.43 + (random() - 0.5) * 0.18;\n      dummy.position.set(x, logY + Math.cos(angle) * 0.486 * radialScale, Math.sin(angle) * 0.486 * radialScale);\n      dummy.rotation.set(angle, random() * 0.3, 0);\n      dummy.scale.set((0.21 + random() * 0.08) * lengthScale, (0.075 + random() * 0.035) * radialScale, (0.17 + random() * 0.035) * radialScale);\n      dummy.updateMatrix();\n      moss.setMatrixAt(i, dummy.matrix);\n      moss.setColorAt(i, new THREE.Color().setHSL(0.22 + random() * 0.045, 0.39, 0.25 + random() * 0.12));\n    }\n    moss.castShadow = true;\n    moss.receiveShadow = true;\n    moss.instanceMatrix.needsUpdate = true;\n    if (moss.instanceColor) moss.instanceColor.needsUpdate = true;\n    group.add(moss);\n  }\n\n  const matureTemplates = [\n    [-1.02, 0.01, 0.53, 0.36, -0.10],\n    [-0.45, -0.12, 0.91, 0.49, -0.07],\n    [0.22, 0.02, 1.13, 0.59, 0.09],\n    [0.91, -0.09, 0.70, 0.43, 0.08],\n    [0.55, 0.32, 0.43, 0.34, -0.07]\n  ];\n  const youngTemplates = [\n    [-0.82, 0.30, 0.25, 0.18, -0.04],\n    [-0.48, 0.34, 0.32, 0.21, 0.02],\n    [1.19, 0.19, 0.27, 0.19, 0.025]\n  ];\n  const mushrooms = [];\n  function populate(templates, count, young) {\n    for (let i = 0; i < count; i++) {\n      let values;\n      if (i < templates.length) {\n        values = templates[i].slice();\n      } else {\n        values = [\n          -1.25 + random() * 2.5,\n          -0.30 + random() * 0.60,\n          young ? 0.22 + random() * 0.14 : 0.48 + random() * 0.67,\n          young ? 0.16 + random() * 0.07 : 0.32 + random() * 0.25,\n          (random() - 0.5) * (young ? 0.08 : 0.2)\n        ];\n      }\n      mushrooms.push({ values, young });\n    }\n  }\n  populate(matureTemplates, matureCount, false);\n  populate(youngTemplates, youngCount, true);\n  mushrooms.forEach(({ values, young }) => {\n    const x = values[0] * lengthScale;\n    const z = values[1] * radialScale;\n    const height = values[2] * stemHeight;\n    const radius = values[3] * capSize;\n    const lean = values[4] * stemHeight;\n    const baseY = logY + Math.sqrt(Math.max(0, logRadius * logRadius - z * z)) - 0.015 * radialScale;\n    const stemRadius = radius * 0.19;\n    const stemGeo = geo(new THREE.CylinderGeometry(stemRadius * 0.78, stemRadius * 1.18, height, 8, 4));\n    stemGeo.translate(0, height / 2, 0);\n    const p = stemGeo.attributes.position;\n    for (let i = 0; i < p.count; i++) {\n      const t = p.getY(i) / height;\n      p.setX(i, p.getX(i) + lean * t * t);\n    }\n    stemGeo.computeVertexNormals();\n    mesh(stemGeo, stemMat, x, baseY, z);\n    const dome = radius * (young ? 0.87 : 0.57);\n    const profile = [\n      new THREE.Vector2(0, 0.008 * capSize),\n      new THREE.Vector2(radius * 0.27, -radius * 0.025),\n      new THREE.Vector2(radius * 0.70, -radius * 0.018),\n      new THREE.Vector2(radius * 0.96, radius * 0.035),\n      new THREE.Vector2(radius, radius * 0.11),\n      new THREE.Vector2(radius * 0.94, dome * 0.48),\n      new THREE.Vector2(radius * 0.74, dome * 0.81),\n      new THREE.Vector2(radius * 0.42, dome * 0.97),\n      new THREE.Vector2(0, dome)\n    ];\n    const capGeo = geo(new THREE.LatheGeometry(profile, 14));\n    capGeo.clearGroups();\n    for (let s = 0; s < 14; s++) {\n      for (let j = 0; j < profile.length - 1; j++) {\n        capGeo.addGroup((s * (profile.length - 1) + j) * 6, 6, j < 3 ? 1 : 0);\n      }\n    }\n    const colors = [], cp = capGeo.attributes.position;\n    const tint = 0.89 + random() * 0.19;\n    for (let i = 0; i < cp.count; i++) {\n      const y = cp.getY(i);\n      const value = tint * (0.91 + 0.14 * y / dome + random() * 0.055);\n      colors.push(value, value, value);\n    }\n    capGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));\n    const cap = mesh(capGeo, [capMat, cream], x + lean, baseY + height - 0.014 * capSize, z);\n    cap.rotation.z = -lean * 0.6;\n  });\n\n  if (branchEnabled) {\n    const branch = mesh(geo(new THREE.CylinderGeometry(0.085 * radialScale, 0.16 * radialScale, 0.48 * radialScale, 7)), bark[1], -1.05 * lengthScale, 0.69 * radialScale, -0.43 * radialScale);\n    branch.rotation.x = -0.92;\n    const tip = new THREE.Vector3(0, 0.245 * radialScale, 0).applyEuler(branch.rotation).add(branch.position);\n    const brokenEnd = mesh(geo(new THREE.CylinderGeometry(0.074 * radialScale, 0.074 * radialScale, 0.009 * radialScale, 7)), wood, tip.x, tip.y, tip.z);\n    brokenEnd.rotation.copy(branch.rotation);\n  }\n\n  group.updateMatrixWorld(true);\n  const bounds = new THREE.Box3().setFromObject(group);\n  const center = bounds.getCenter(new THREE.Vector3());\n  group.children.forEach(child => {\n    child.position.x -= center.x;\n    child.position.y -= bounds.min.y;\n    child.position.z -= center.z;\n  });\n  if (Number.isFinite(Number(scale)) && Number(scale) > 0) group.scale.setScalar(Number(scale));\n  group.updateMatrixWorld(true);\n  return {\n    root: group,\n    dispose: () => {\n      instances.forEach(object => object.dispose());\n      geometries.forEach(g => g.dispose());\n      materials.forEach(m => m.dispose());\n    }\n  };\n}"
+}

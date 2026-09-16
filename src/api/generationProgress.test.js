@@ -1,0 +1,84 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createGenerationProgressStore } from './generationProgress.js'
+
+let store
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(10000)
+  store = createGenerationProgressStore()
+})
+afterEach(() => vi.useRealTimers())
+
+describe('generation progress lifecycle', () => {
+  it('tracks elapsed time across real stages and clears the timer on settle', () => {
+    const operation = store.start('creative', { maxAttempts: 3 })
+    expect(store.getSnapshot()).toMatchObject({ task: 'creative', stage: 'preparing', elapsedMs: 0, attempt: 0, repairAttempt: 0 })
+    operation.report('model', { attempt: 1 })
+    vi.advanceTimersByTime(2100)
+    expect(store.getSnapshot()).toMatchObject({ stage: 'model', elapsedMs: 2000, attempt: 1, maxAttempts: 3 })
+    operation.report('execution')
+    expect(store.getSnapshot()).toMatchObject({ stage: 'execution', startedAt: 10000, elapsedMs: 2100 })
+    operation.finish()
+    expect(store.getSnapshot()).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('cancels immediately, removes its abort listener, and ignores late updates', () => {
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const operation = store.start('edit', { signal: controller.signal })
+    controller.abort()
+    expect(store.getSnapshot()).toBeNull()
+    operation.report('execution')
+    operation.finish()
+    expect(store.getSnapshot()).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+  })
+
+  it('prevents stale reporters, cancellation and finalizers from replacing a newer operation', () => {
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const old = store.start('creative', { signal: controller.signal })
+    const oldId = store.getSnapshot().id
+    const current = store.start('convert')
+    const snapshot = store.getSnapshot()
+    expect(snapshot.id).not.toBe(oldId)
+    old.report('repair', { attempt: 2, repairAttempt: 1 })
+    old.finish()
+    controller.abort()
+    expect(store.getSnapshot()).toBe(snapshot)
+    expect(vi.getTimerCount()).toBe(1)
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    current.finish()
+  })
+
+  it('does not start an already cancelled operation or displace an active one', () => {
+    const current = store.start('animate')
+    const snapshot = store.getSnapshot()
+    const controller = new AbortController()
+    controller.abort()
+    const cancelled = store.start('edit', { signal: controller.signal })
+    cancelled.report('model')
+    cancelled.finish()
+    expect(store.getSnapshot()).toBe(snapshot)
+    expect(vi.getTimerCount()).toBe(1)
+    current.finish()
+  })
+
+  it('publishes stable snapshots, unsubscribes, and cleans up the signal after success', () => {
+    const listener = vi.fn()
+    const unsubscribe = store.subscribe(listener)
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const operation = store.start('spec', { signal: controller.signal })
+    expect(store.getSnapshot()).toBe(store.getSnapshot())
+    expect(listener).toHaveBeenCalledOnce()
+    unsubscribe()
+    operation.report('validation')
+    operation.finish()
+    expect(listener).toHaveBeenCalledOnce()
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})

@@ -1,0 +1,116 @@
+// New profile; template use is offline and model generation is intercepted.
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
+const { chromium } = require('playwright')
+const { expect } = require('playwright/test')
+const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' })
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+  const errors = []
+  const requests = []
+  page.on('pageerror', error => errors.push(error.message))
+  page.on('dialog', dialog => dialog.accept())
+  await page.route('**/api/message', route => {
+    requests.push(route.request().postDataJSON())
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      text: 'function createAsset(THREE) { const root = new THREE.Group(); root.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial())); return { root }; }',
+      provider: 'openai', model: 'fixture', usage: {},
+    }) })
+  })
+  await page.goto(process.argv[2] || 'http://127.0.0.1:5275')
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByRole('group', { name: 'Generation mode' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Generation Library' })
+  const templatesTab = page.getByRole('tab', { name: 'Templates', exact: true })
+  const savedTab = page.getByRole('tab', { name: 'Saved assets', exact: true })
+  await expect(templatesTab).toHaveAttribute('aria-selected', 'true')
+  await dialog.getByText('Built-in generators', { exact: true }).click()
+  const cards = dialog.locator('[data-template-generator]')
+  await expect(cards).toHaveCount(7)
+  await expect(dialog.getByText('No API key or credits needed.', { exact: false })).toBeVisible()
+  await expect.poll(() => cards.locator('img').evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0))).toBe(true)
+  if (process.argv[3]) await page.screenshot({ path: process.argv[3], fullPage: true })
+  await templatesTab.focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(savedTab).toBeFocused()
+  await expect(savedTab).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByText('No generations found', { exact: true })).toBeVisible()
+  // The built-ins are not silently inserted into the user's backup/library.
+  const backupEvent = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+  const chunks = []
+  for await (const chunk of await (await backupEvent).createReadStream()) chunks.push(chunk)
+  expect(JSON.parse(Buffer.concat(chunks).toString()).generations).toEqual([])
+  await page.keyboard.press('Escape')
+
+  for (const generator of ['butterflySwarm', 'proceduralTree', 'particleSystem', 'simpleBuilding', 'rockCluster', 'buildingModular', 'environmentScatter']) {
+    await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
+    await dialog.getByText('Built-in generators', { exact: true }).click()
+    await dialog.locator(`[data-template-generator="${generator}"]`).click()
+    await expect(dialog).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled()
+    await expect(page.getByText(generator, { exact: true })).toBeVisible()
+    // The JSON editor includes empty accessibility announcement regions.
+    await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveCount(0)
+    const downloadEvent = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download GLB', exact: true }).click()
+    const chunks = []
+    for await (const chunk of await (await downloadEvent).createReadStream()) chunks.push(chunk)
+    const glb = Buffer.concat(chunks)
+    expect(glb.subarray(0, 4).toString(), generator).toBe('glTF')
+    expect(glb.readUInt32LE(4), generator).toBe(2)
+    expect(glb.readUInt32LE(8), generator).toBe(glb.length)
+    const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString())
+    expect(json.meshes.length, generator).toBeGreaterThan(0)
+  }
+  expect(requests).toEqual([])
+
+  await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
+  await dialog.getByText('Built-in generators', { exact: true }).click()
+  await dialog.locator('[data-template-generator="buildingModular"]').click()
+  const width = page.getByRole('slider', { name: 'footprint.width', exact: true })
+  const depth = page.getByRole('slider', { name: 'footprint.depth', exact: true })
+  const originalWidth = await width.inputValue()
+  const originalDepth = await depth.inputValue()
+  await width.fill('16.5')
+  await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled()
+  await expect(width).toHaveValue('16.5')
+  await expect(depth).toHaveValue(originalDepth)
+  await page.getByRole('slider', { name: 'floors', exact: true }).fill('3')
+  await page.getByRole('button', { name: 'Save to Library', exact: true }).click()
+  await page.getByPlaceholder('Enter a name for this asset').fill('My template copy')
+  await page.getByRole('button', { name: 'Save to Library', exact: true }).last().click()
+  await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
+  await dialog.getByText('Built-in generators', { exact: true }).click()
+  await dialog.locator('[data-template-generator="buildingModular"]').click()
+  await expect(width).toHaveValue(originalWidth)
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Load My template copy', exact: true }).click()
+  await expect(width).toHaveValue('16.5')
+  await expect(depth).toHaveValue(originalDepth)
+  await expect(page.getByRole('slider', { name: 'floors', exact: true })).toHaveValue('3')
+  expect(requests).toEqual([])
+
+  await page.getByPlaceholder('Describe what you want to create...').fill('An arcade cabinet')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Copy source', exact: true })).toBeVisible()
+  expect(requests.map(request => request.task)).toEqual(['creative'])
+
+  for (const viewportWidth of [1024, 390]) {
+    await page.setViewportSize({ width: viewportWidth, height: 844 })
+    await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
+    await dialog.getByText('Built-in generators', { exact: true }).click()
+    const bounds = await dialog.boundingBox()
+    expect(bounds.x).toBeGreaterThanOrEqual(0)
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewportWidth)
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    await cards.last().scrollIntoViewIfNeeded()
+    await expect(cards.last()).toBeVisible()
+    if (process.argv[3] && viewportWidth === 390) await page.screenshot({ path: process.argv[3].replace('.png', '-mobile.png'), fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: 'Browse templates', exact: true })).toBeFocused()
+  }
+  expect(errors).toEqual([])
+  console.log('Templates: gallery, all seven offline loads and GLB exports, editable controls, copy isolation, backup exclusion, single AI flow, keyboard and responsive layout passed')
+} finally { await browser.close() }

@@ -1,0 +1,87 @@
+/* Helios Yellow/Orange Theme */
+
+:root {
+  --helios-50: #fffbeb;
+  --helios-100: #fef3c7;
+  --helios-200: #fde68a;
+  --helios-300: #fcd34d;
+  --helios-400: #fbbf24;
+  --helios-500: #f59e0b;
+  --helios-600: #d97706;
+  --helios-700: #b45309;
+  --helios-800: #92400e;
+  --helios-900: #78350f;
+  
+  --helios-gradient: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+  --helios-gradient-dark: linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%);
+}
+
+/* Button styles */
+.btn-helios {
+  @apply px-4 py-2 rounded-lg font-semibold text-gray-900 transition-colors duration-200;
+  background: var(--studio-accent, #e9b45f);
+}
+
+.btn-helios:hover {
+  background: #f2c783;
+}
+
+.btn-helios:active {
+  background: #dba14d;
+}
+
+.btn-helios:disabled {
+  @apply opacity-50 cursor-not-allowed transform-none;
+}
+
+/* Panel styles */
+.panel-dark {
+  @apply bg-gray-900 border border-gray-800 rounded-lg;
+}
+
+.panel-header {
+  @apply px-4 py-2 border-b border-gray-800 font-semibold text-helios-400;
+}
+
+/* Input styles */
+.input-dark {
+  @apply w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-helios-500 focus:ring-1 focus:ring-helios-500 transition-colors;
+  background: #22262a;
+  border-color: #3a3f43;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Loading spinner */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(251, 191, 36, 0.3);
+  border-top-color: var(--helios-400);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
