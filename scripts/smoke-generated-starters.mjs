@@ -1,5 +1,5 @@
 // Exercise shipped source only inside the app's isolated worker. No paid requests.
-// Usage: node scripts/smoke-generated-starters.mjs [url] [--write-previews] [--details]
+// Usage: node scripts/smoke-generated-starters.mjs [url] [--write-previews] [--details] [--only=id]
 import { createRequire } from 'node:module'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -9,6 +9,7 @@ const { chromium } = require('playwright')
 const { expect } = require('playwright/test')
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' })
 const writePreviews = process.argv.includes('--write-previews')
+const only = process.argv.find(arg => arg.startsWith('--only='))?.slice('--only='.length)
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
   const errors = [], paidRequests = []
@@ -27,7 +28,9 @@ try {
     ['alpine-cottage', { roofCourses: 1, railingCount: 2, chimneyEnabled: false, lanternEnabled: false, widthScale: 0.7, depthScale: 0.7, roofOverhang: 0.15 }],
     ['alpine-cottage', { roofCourses: 24, railingCount: 14, widthScale: 1.5, depthScale: 1.5, roofOverhang: 0.8 }],
   ]
-  for (const [id, overrides] of cases) {
+  const selectedCases = cases.filter(([id]) => !only || id === only)
+  if (!selectedCases.length) throw new Error(`Unknown starter: ${only}`)
+  for (const [id, overrides] of selectedCases) {
     const result = await page.evaluate(async ({ id, overrides, details }) => {
       const { loadGeneratedStarter } = await import('/src/services/generatedStarters.js')
       const { executeCode } = await import('/src/runtime/CodeSandbox.js')
@@ -43,8 +46,11 @@ try {
         const png = await asset.captureThumbnail(512, 384)
         const detailImages = []
         if (details && id === 'park-apartments' && !Object.keys(overrides).length) {
-          for (const position of [[4, 11, 14], [-5, 8, 13]]) {
-            await asset.setCamera('starter-test', { position, target: [0, 11, 3.5] })
+          for (const [position, target] of [
+            [[4, 11, 14], [0, 11, 3.5]], [[-5, 8, 13], [0, 11, 3.5]],
+            [[0.1, 2.6, 7], [0.5, 2.3, 3.5]], [[0.1, 4.7, 7], [0.5, 4.5, 3.5]],
+          ]) {
+            await asset.setCamera('starter-test', { position, target })
             // Allow a worker frame to reach the bitmap presentation canvas.
             await new Promise(resolve => setTimeout(resolve, 150))
             detailImages.push(canvas.toDataURL('image/png'))
@@ -75,6 +81,7 @@ try {
         // Regression for the apartment's repeated floor trim: its exposed face
         // must project beyond the wall face, not share a plane with the header.
         const clearances = []
+        const cedarClearances = []
         if (id === 'park-apartments') {
           const scale = params.scale
           const close = (a, b) => Math.abs(a - b) < 0.0001 * scale
@@ -87,11 +94,18 @@ try {
             if (!trim || !header) throw new Error(`Missing floor ${floor} trim/header in exported geometry`)
             clearances.push((trim.max[2] - header.max[2]) / scale)
           }
+          const cedar = boxes.filter(b => close(b.min[1], 0.45 * scale)
+            && close(b.max[1], (0.45 + 3 + (params.floorCount - 1) * 2.7) * scale)
+            && b.min[2] > 3.48 * scale && b.min[0] > scale && b.max[0] < 2 * scale)
+          const sign = boxes.find(b => close(b.max[0] - b.min[0], 2.7 * scale)
+            && close(b.max[1] - b.min[1], 0.675 * scale) && close(b.min[2], 3.525 * scale))
+          if (!sign || cedar.length !== 4) throw new Error('Missing entrance sign or three-slat cedar accent in GLB')
+          cedarClearances.push(...cedar.map(b => (b.min[0] - sign.max[0]) / scale))
         }
         const bounds = new THREE.Box3().setFromObject(scene).getSize(new THREE.Vector3()).toArray()
         const { disposeObject } = await import('/src/runtime/assetDisposal.js')
         disposeObject(scene)
-        return { png, detailImages, meshes, triangles, nonFinite, clearances, bounds, bytes: glb.byteLength }
+        return { png, detailImages, meshes, triangles, nonFinite, clearances, cedarClearances, bounds, bytes: glb.byteLength }
       } finally { asset.dispose(); canvas.remove() }
     }, { id, overrides, details: process.argv.includes('--details') })
     const { png, detailImages, ...metrics } = result
@@ -109,6 +123,7 @@ try {
     expect(result.nonFinite).toBe(0)
     expect(result.bounds.every(value => Number.isFinite(value) && value > 0)).toBe(true)
     for (const clearance of result.clearances) expect(clearance, 'Floor trim clearance in exported geometry').toBeGreaterThan(0.029)
+    for (const clearance of result.cedarClearances) expect(clearance, 'Cedar clearance beside exported sign').toBeGreaterThan(0.03)
   }
   expect(errors).toEqual([])
   expect(paidRequests).toEqual([])
