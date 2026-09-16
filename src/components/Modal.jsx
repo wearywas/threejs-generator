@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 /** Native modal isolation keeps focus and keyboard input out of the workspace. */
-export default function Modal({ onClose, labelledBy, initialFocusRef, className = '', children }) {
+export default function Modal({ onClose, labelledBy, initialFocusRef, dismissOnBackdrop = true, className = '', children }) {
   const ref = useRef(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -32,7 +32,7 @@ export default function Modal({ onClose, labelledBy, initialFocusRef, className 
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
       }}
       onClick={event => {
-        if (event.target !== event.currentTarget) return
+        if (!dismissOnBackdrop || event.target !== event.currentTarget) return
         const bounds = event.currentTarget.getBoundingClientRect()
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeRef.current?.()
       }}>

@@ -26,14 +26,15 @@ export function createGenerationProgressStore() {
       snapshot = null
       notify()
     }
-    const report = (stage, { attempt = snapshot?.attempt, repairAttempt = snapshot?.repairAttempt } = {}) => {
+    const report = (stage, { attempt = snapshot?.attempt, repairAttempt = snapshot?.repairAttempt, retryReason = snapshot?.retryReason } = {}) => {
       if (closed || active?.id !== id) return
-      snapshot = { ...snapshot, stage, attempt, repairAttempt, elapsedMs: Math.max(0, Date.now() - startedAt) }
+      const reason = typeof retryReason === 'string' ? retryReason.replace(/\s+/g, ' ').trim() : ''
+      snapshot = { ...snapshot, stage, attempt, repairAttempt, retryReason: reason.length > 500 ? `${reason.slice(0, 499)}…` : reason, elapsedMs: Math.max(0, Date.now() - startedAt) }
       notify()
     }
 
     active = { id, cleanup }
-    snapshot = { id, task, stage: 'preparing', startedAt, elapsedMs: 0, attempt: 0, maxAttempts, repairAttempt: 0 }
+    snapshot = { id, task, stage: 'preparing', startedAt, elapsedMs: 0, attempt: 0, maxAttempts, repairAttempt: 0, retryReason: '' }
     signal?.addEventListener('abort', finish, { once: true })
     timer = setInterval(() => report(snapshot?.stage), 1000)
     notify()

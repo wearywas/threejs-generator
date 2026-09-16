@@ -46,7 +46,7 @@ export default function PromptInput({ onGenerate, loading, disabled = loading, c
         >
           {loading ? (
             <>
-              <div className="spinner" />
+              <div className="spinner" aria-hidden="true" />
               <span>Generating...</span>
             </>
           ) : (

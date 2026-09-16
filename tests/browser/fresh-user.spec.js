@@ -180,7 +180,7 @@ test('cancelling an in-flight generation restores controls and keeps the prior a
   await expect.poll(() => Boolean(heldRoute)).toBe(true)
   expectGenerationPayload(heldRoute.request(), prompt)
   await expect(page.getByRole('status').filter({ hasText: 'Waiting for model response' })).toBeVisible()
-  await expect(page.getByText('Request attempt 1 of up to 3', { exact: true })).toBeVisible()
+  await expect(page.getByText('Model request 1 · maximum 3', { exact: true })).toBeVisible()
   await expect(page.getByRole('timer')).toHaveText(/Elapsed 0:0[1-9]/)
   await expect(page.getByRole('textbox', { name: 'Describe your asset', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: 'Cancel request', exact: true }).click()

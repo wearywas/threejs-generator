@@ -88,6 +88,9 @@ describe('generation operation progress', () => {
     result.asset.dispose()
     const states = snapshots.filter(Boolean)
     expect(states.filter(state => state.stage === 'repair').map(state => [state.attempt, state.repairAttempt])).toEqual([[2, 1], [3, 2]])
+    expect(states.filter(state => state.stage === 'repair').map(state => state.retryReason)).toEqual([
+      'Execution failed: broken fixture', 'Execution failed: broken fixture',
+    ])
     expect(new Set(states.map(state => state.id)).size).toBe(1)
     expect(states.at(-1)).toMatchObject({ stage: 'execution', attempt: 3, repairAttempt: 2, maxAttempts: 3 })
     expect(snapshots.at(-1)).toBeNull()
@@ -110,6 +113,7 @@ describe('generation operation progress', () => {
     result.asset.dispose()
     expect(snapshots.filter(state => state?.stage === 'model').map(state => [state.attempt, state.repairAttempt])).toEqual([[1, 0], [2, 0]])
     expect(snapshots.some(state => state?.stage === 'repair')).toBe(false)
+    expect(snapshots.find(state => state?.stage === 'model' && state.attempt === 2)?.retryReason).toContain('Code must start with')
   })
 
   it('clears after failed execution without publishing a success state', async () => {

@@ -77,7 +77,7 @@ test('another tab cannot silently replace the recovery copy', async ({ page, con
   await expect(page.getByRole('region', { name: 'Workspace recovery' })).toContainText('A modern apartment building.')
 })
 
-test('a generated result is recovered without another request; repair progress and modal cancellation stay truthful', async ({ page }) => {
+test('a generated result is recovered without another request; repair progress and modal cancellation stay truthful', async ({ page }, testInfo) => {
   const code = `function createAsset(THREE) {
     const root = new THREE.Group();
     root.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({color: 0x6598bb})));
@@ -96,8 +96,10 @@ test('a generated result is recovered without another request; repair progress a
   await page.getByLabel('Describe your asset', { exact: true }).fill('A blue cube')
   await page.getByRole('button', { name: 'Generate', exact: true }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Waiting for model repair response' })).toBeVisible()
-  await expect(page.getByText('Request attempt 2 of up to 3', { exact: true })).toBeVisible()
-  await expect(page.getByText('Repair attempts: 1', { exact: true })).toBeVisible()
+  await expect(page.getByText('Model request 2 · maximum 3', { exact: true })).toBeVisible()
+  await expect(page.getByText('Repair requests: 1 (included above)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Why another request?' })).toContainText('Deliberate test failure')
+  await page.screenshot({ path: testInfo.outputPath('repair-progress.png') })
   await expect(page.getByRole('timer')).toHaveText(/Elapsed 0:0[1-9]/)
   await repairRoute.fulfill({ json: { provider: 'openai', model: 'synthetic-test-model', text: code } })
   await expect(page.getByLabel('Recovery status')).toHaveText(/Recovery saved in this browser/)

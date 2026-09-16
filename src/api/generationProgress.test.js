@@ -10,6 +10,22 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('generation progress lifecycle', () => {
+  it('keeps a bounded retry reason through validation, then clears it for the next operation', () => {
+    const operation = store.start('creative')
+    operation.report('repair', { attempt: 2, repairAttempt: 1, retryReason: 'Execution failed: branch is not defined' })
+    operation.report('validation')
+    vi.advanceTimersByTime(1000)
+    expect(store.getSnapshot().retryReason).toBe('Execution failed: branch is not defined')
+    operation.report('repair', { retryReason: 'x'.repeat(800) })
+    expect(store.getSnapshot().retryReason.length).toBeLessThanOrEqual(500)
+    operation.finish()
+    const next = store.start('edit')
+    expect(store.getSnapshot().retryReason).toBe('')
+    operation.report('repair', { retryReason: 'stale failure' })
+    expect(store.getSnapshot().retryReason).toBe('')
+    next.finish()
+  })
+
   it('tracks elapsed time across real stages and clears the timer on settle', () => {
     const operation = store.start('creative', { maxAttempts: 3 })
     expect(store.getSnapshot()).toMatchObject({ task: 'creative', stage: 'preparing', elapsedMs: 0, attempt: 0, repairAttempt: 0 })

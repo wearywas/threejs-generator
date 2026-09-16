@@ -68,7 +68,7 @@ export async function generateAssetSpec(prompt, maxAttempts = 3, examples = [], 
         }
 
         // Call the selected provider through the local service.
-        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed })
+        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed, retryReason: lastError || '' })
         const response = await createMessage({
           task: 'spec',
           max_tokens: 4096,
@@ -153,7 +153,7 @@ export async function generateCreativeAsset(prompt, examples = [], maxAttempts =
           `[Creative] attempt ${attemptNumber}/${maxAttempts} phase=${promptKind}`
         )
 
-        report(promptKind === 'repair' ? 'repair' : 'model', { attempt: attemptNumber, repairAttempt: repairsUsed })
+        report(promptKind === 'repair' ? 'repair' : 'model', { attempt: attemptNumber, repairAttempt: repairsUsed, retryReason: lastError || '' })
         const response = await createMessage({
           task: 'creative',
           max_tokens: 32000, // Adaptive-thinking headroom + complex buildings/scenes
@@ -291,7 +291,7 @@ export async function convertToProceduralAsset(code, originalPrompt, maxAttempts
         }
 
         // Call the selected provider through the local service.
-        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed })
+        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed, retryReason: lastError || '' })
         const response = await createMessage({
           task: 'convert',
           max_tokens: 16384, // Code + schema, plus adaptive-thinking headroom
@@ -383,7 +383,7 @@ export async function addAnimationToAsset(code, originalPrompt, schema = null, m
         }
 
         // Call the selected provider through the local service.
-        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed })
+        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed, retryReason: lastError || '' })
         const response = await createMessage({
           task: 'animate',
           max_tokens: 16384,
@@ -478,7 +478,7 @@ export async function editAsset(code, originalPrompt, editRequest, currentSchema
         }
 
         // Call the selected provider through the local service.
-        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed })
+        report(lastError && lastResponse ? 'repair' : 'model', { attempt: attempt + 1, repairAttempt: repairsUsed, retryReason: lastError || '' })
         const response = await createMessage({
           task: 'edit',
           max_tokens: 16384,

@@ -9,6 +9,7 @@ export default function CodeEditor({ code, onChange, readOnly = false, appliedCo
   const [editMode, setEditMode] = useState(false)
   const [editedCode, setEditedCode] = useState(code || '')
   const textareaRef = useRef(null)
+  const editStartCodeRef = useRef(editedCode)
   const isDraft = editedCode !== (appliedCode || '')
   
   // Sync with external code changes
@@ -24,8 +25,17 @@ export default function CodeEditor({ code, onChange, readOnly = false, appliedCo
       if (onChange && editedCode !== code) {
         onChange(editedCode)
       }
+    } else {
+      editStartCodeRef.current = editedCode
     }
     setEditMode(!editMode)
+  }
+
+  const handleCancel = () => {
+    const restoredCode = editStartCodeRef.current
+    setEditedCode(restoredCode)
+    onChange?.(restoredCode)
+    setEditMode(false)
   }
   
   const handleChange = (e) => {
@@ -65,6 +75,15 @@ export default function CodeEditor({ code, onChange, readOnly = false, appliedCo
           >
             {isDraft ? 'Copy draft' : 'Copy source'}
           </button>
+          {!readOnly && editMode && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="text-xs px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+            >
+              Cancel
+            </button>
+          )}
           {!readOnly && (
             <button
               onClick={handleEditToggle}

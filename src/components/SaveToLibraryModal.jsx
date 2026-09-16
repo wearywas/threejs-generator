@@ -95,7 +95,7 @@ export default function SaveToLibraryModal({
   if (!isOpen) return null
 
   return (
-    <Modal labelledBy="save-library-heading" onClose={onClose} className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100">
+    <Modal labelledBy="save-library-heading" onClose={onClose} dismissOnBackdrop={false} className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-100">
         {/* Header */}
         <div className="flex shrink-0 items-start justify-between gap-3 p-4 border-b border-neutral-700">
           <div className="min-w-0">

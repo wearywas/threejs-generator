@@ -28,10 +28,13 @@ export default function GenerationProgress({ active = false, task, onCancelReque
       {progress && <>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-300">
           <span role="timer" aria-live="off">Elapsed {elapsed}</span>
-          {progress.attempt > 0 && <span>Request attempt {progress.attempt} of up to {progress.maxAttempts}</span>}
-          <span>Repair attempts: {progress.repairAttempt}</span>
+          {progress.attempt > 0 && <span>Model request {progress.attempt} · maximum {progress.maxAttempts}</span>}
+          {progress.repairAttempt > 0 && <span>Repair requests: {progress.repairAttempt} (included above)</span>}
         </div>
-        <p className="text-xs text-neutral-400">Additional attempts, including repairs, can incur API charges.</p>
+        {progress.retryReason && <p className="text-xs text-neutral-300 break-words" role="status">
+          <span className="font-medium">Why another request?</span> {progress.retryReason}
+        </p>}
+        <p className="text-xs text-neutral-400">The request limit includes repairs; additional requests can incur API charges.</p>
       </>}
     </div>
     {onCancelRequest && <button type="button" className="shrink-0 text-helios-300 underline" onClick={onCancelRequest}>Cancel request</button>}

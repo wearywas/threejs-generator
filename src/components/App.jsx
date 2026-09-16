@@ -188,7 +188,7 @@ export default function App() {
       <main className="studio-main">
         {/* Preview Canvas */}
         <section className="preview-workspace" aria-label="3D workspace">
-          <div className="viewport-toolbar"><span title={originalPrompt}>{originalPrompt || 'Your next idea, in 3D'}</span><span>Drag to orbit · Scroll to zoom</span></div>
+          <div className="viewport-toolbar"><span title={originalPrompt}>{originalPrompt}</span><span>Drag to orbit · Scroll to zoom</span></div>
           <div className="viewport-canvas">
           {asset ? <PreviewCanvas ref={previewCanvasRef} asset={asset} continuityKey={current?.sourceRevision} /> :
             <WorkspaceWelcome onBrowseTemplates={() => openLibrary('templates')} onConnectModel={() => setShowModelSettings(true)} disabled={busy} />}

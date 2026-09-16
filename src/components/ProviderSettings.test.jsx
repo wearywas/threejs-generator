@@ -12,7 +12,7 @@ describe('request progress status', () => {
       const html = renderToStaticMarkup(<RequestStatus onCancelRequest={() => {}} />)
       expect(html).toContain('Executing and validating generated code')
       expect(html).toContain('Elapsed 0:00')
-      expect(html).toContain('Repair attempts: 1')
+      expect(html).toContain('Repair requests: 1 (included above)')
       expect(html).toContain('Cancel request')
     } finally { operation.finish() }
     expect(renderToStaticMarkup(<RequestStatus />)).toBe('')
