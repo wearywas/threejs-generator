@@ -33,6 +33,8 @@ Vitest covers source contracts, state/lifecycle, persistence, provider errors, g
 
 CI runs install, unit tests, build and browser tests on Windows and Linux with Node 24. Treat CI execution results as separate evidence from a local Windows run. The `scripts/smoke-*.mjs` and `src/components/*.browser.mjs` utilities are focused development probes, not substitutes for the main suite; read their server/profile assumptions before using them.
 
+The [demos](../demos/README.md) have independent dependencies and checks, and are excluded from the root Vitest suite. CI also installs, tests and builds Snack Abduction and Little Borough on each operating system. Their browser suites use ports 5199 and 5200 respectively.
+
 ## Contribution conventions
 
 - Keep changes focused and add regression tests for behavior changes. Use the existing JS/JSX, React and Tailwind/CSS conventions; there is no lint script.

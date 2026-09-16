@@ -47,6 +47,17 @@ jobs:
       - name: Test Snack Abduction browser flows
         working-directory: demos/snack-abduction
         run: npm run test:browser
+      - name: Install Little Borough demo
+        run: npm --prefix demos/little-borough ci
+      - name: Test Little Borough state and generated assets
+        working-directory: demos/little-borough
+        run: npm test
+      - name: Build Little Borough demo
+        working-directory: demos/little-borough
+        run: npm run build
+      - name: Test Little Borough browser flows
+        working-directory: demos/little-borough
+        run: npm run test:browser
       - name: Preserve browser diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
@@ -57,5 +68,7 @@ jobs:
             test-results/
             demos/snack-abduction/playwright-report/
             demos/snack-abduction/test-results/
+            demos/little-borough/playwright-report/
+            demos/little-borough/test-results/
           retention-days: 7
           if-no-files-found: ignore

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#dce9eb" />
+    <meta name="description" content="A relaxed, procedural neighborhood. Grow a little city, one floor at a time." />
+    <title>Little Borough — A procedural neighborhood</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <main id="app">
+      <div id="scene" aria-label="Interactive neighborhood"></div>
+      <header class="masthead">
+        <div class="wordmark"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M5 34V17h10v17M15 34V6h12v28M27 34V13h8v21M2 35h36M19 12h4m-4 6h4m-4 6h4M8 23h4m18-4h2m-2 6h2" /></svg><h1>Little Borough<span>A neighborhood, one floor at a time.</span></h1></div>
+      </header>
+      <nav class="top-actions" aria-label="Neighborhood actions">
+        <button id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5-5 5 5 5M4 10h10a5 5 0 0 1 0 10" /></svg><span>Undo</span></button>
+        <button id="reset-view" title="Reset camera view" aria-label="Reset view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10V4h6M4 5a9 9 0 1 1-1 10M9 13l3-3 3 3v5H9z" /></svg><span>Reset view</span></button>
+        <button id="help-button" aria-label="How to play" aria-expanded="false" aria-controls="help-panel">?</button>
+      </nav>
+      <aside id="help-panel" hidden>
+        <h2>Make yourself a neighborhood.</h2>
+        <p>Click an empty plot to build. Keep clicking to add floors, up to ten. Every new building gets its own palette.</p>
+        <dl><dt>Left click</dt><dd>Add one floor</dd><dt>Right click</dt><dd>Remove one floor</dd><dt>Drag</dt><dd>Rotate the view</dd><dt>Shift + drag</dt><dd>Pan the neighborhood</dd><dt>Scroll</dt><dd>Zoom in or out</dd></dl>
+        <p>On touch screens, choose Build or Remove, then tap a plot. Drag to rotate; use two fingers to pan and zoom.</p>
+        <p>Use the plot menu and + / − buttons with a keyboard. Your neighborhood is saved in this browser.</p>
+      </aside>
+      <div id="intro" class="intro"><span class="intro-dot"></span>Pick a plot. See what grows.</div>
+      <div id="hover-label" class="hover-label" hidden></div>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <footer class="bottom-bar">
+        <div class="neighborhood-stats" aria-label="Neighborhood totals"><span><strong id="building-count">0</strong> buildings</span><span><strong id="floor-count">0</strong> floors</span></div>
+        <div class="tool-rail">
+          <div class="tool-switch" role="group" aria-label="Plot tool">
+            <button id="build-tool" aria-pressed="true"><span aria-hidden="true">+</span> Build</button>
+            <button id="remove-tool" aria-pressed="false"><span aria-hidden="true">−</span> Remove</button>
+          </div>
+          <div class="plot-controls">
+            <label class="sr-only" for="plot-select">Choose a plot</label><select id="plot-select"></select>
+            <button id="subtract-floor" aria-label="Remove floor from selected plot" title="Remove a floor">−</button>
+            <button id="add-floor" aria-label="Add floor to selected plot" title="Add a floor">+</button>
+          </div>
+        </div>
+        <p class="camera-hint">Drag to rotate <span>·</span> Scroll to zoom</p>
+      </footer>
+      <div id="loading"><span class="loading-block"></span>Planting the neighborhood…</div>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

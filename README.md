@@ -39,7 +39,7 @@ To generate your own asset, open **Connect a model** or **Model settings**, sele
 
 The app preserves the last working asset when a generation or edit fails. Generated code is executed in an isolated browser worker; geometry hints are advisory, not extra AI rejection rounds.
 
-## Play a demo
+## Try the demos
 
 [Snack Abduction](demos/snack-abduction/README.md) turns seven exported JavaScript assets into a playable tabletop UFO game. It imports the generated source directly: the saucer's emitter glows, the robot's brushes spin, and generated snacks become things you can pick up and score with. No GLBs or API key are needed to play.
 
@@ -50,7 +50,16 @@ npm --prefix demos/snack-abduction ci
 npm run demo:snack-abduction
 ```
 
-Open [http://127.0.0.1:5174](http://127.0.0.1:5174). The demo has its own dependencies and build, so you can run it alongside the generator. See [demos](demos/README.md) for the source and checks.
+Open [http://127.0.0.1:5174](http://127.0.0.1:5174).
+
+[Little Borough](demos/little-borough/README.md) is a relaxed city planner made from six exported JavaScript assets. Click to add apartment floors, right-click to remove them, and build a colorful neighborhood around a park. Floor changes regenerate real geometry; cars, vans and trees show off the exports' procedural variations.
+
+```sh
+npm --prefix demos/little-borough ci
+npm run demo:little-borough
+```
+
+Open [http://127.0.0.1:5175](http://127.0.0.1:5175). Both demos have their own dependencies and builds, so they can run alongside the generator. Neither needs an API key. See [demos](demos/README.md) for the source and checks.
 
 ## Learn more
 
