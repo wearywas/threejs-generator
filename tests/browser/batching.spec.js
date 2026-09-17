@@ -21,8 +21,8 @@ test('preview GLB preserves the shown apartment grid and remains separate from b
   await dialog.getByLabel(/Scale Jitter/).fill('0')
   const button = dialog.getByRole('button', { name: 'Download preview GLB', exact: true })
   // Rapid setting changes can finish a superseded attach (15s), detach it
-  // (5s), then attach the chosen layout (15s). Wait for that real ready state.
-  await expect(button).toBeEnabled({ timeout: 40000 })
+  // (15s), then attach the chosen layout (15s). Wait for that real ready state.
+  await expect(button).toBeEnabled({ timeout: 50000 })
   const grid = await downloadBytes(page, 'Download preview GLB')
   expect(grid.name).toBe(single.name.replace('.glb', '.layout.glb'))
   const json = sceneJSON(grid.bytes)

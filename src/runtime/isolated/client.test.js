@@ -11,7 +11,7 @@ const metadata = {
 
 // Simulate browser/worker startup while keeping the real host transport and its
 // deadlines. The factory cannot receive init until the private port is ready.
-function browser({ bootDelay = 6000, hangFactory = false, readyValue = null } = {}) {
+function browser({ bootDelay = 6000, hangFactory = false, readyValue = null, detachDelay = 0 } = {}) {
   const sent = [], terminated = vi.fn(), removed = vi.fn(), listeners = new Map()
   vi.stubGlobal('OffscreenCanvas', class {})
   vi.stubGlobal('MessageChannel', class {
@@ -29,7 +29,10 @@ function browser({ bootDelay = 6000, hangFactory = false, readyValue = null } = 
       const waiting = []
       const receive = message => {
         if (message.type === 'init' && hangFactory) return
-        port.postMessage({ id: message.id, ok: true, value: message.type === 'ready' ? readyValue : metadata })
+        const reply = () => port.postMessage({ id: message.id, ok: true,
+          value: message.type === 'ready' ? readyValue : message.type === 'init' ? metadata : null })
+        if (message.type === 'detach') setTimeout(reply, detachDelay)
+        else reply()
       }
       port.onmessage = ({ data }) => { sent.push(data.type); ready ? receive(data) : waiting.push(data) }
       setTimeout(() => { ready = true; waiting.splice(0).forEach(receive) }, bootDelay)
@@ -93,6 +96,33 @@ describe('isolated worker startup deadlines', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect((await result).message).toMatch(/Invalid runtime acknowledgement/)
     expect(host.sent).toEqual(['ready'])
+    expect(host.terminated).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows bounded graphics resource cleanup without imposing the short heartbeat deadline', async () => {
+    const host = browser({ bootDelay: 0, detachDelay: 6000 })
+    const running = executeIsolated(code)
+    await vi.dynamicImportSettled()
+    await vi.advanceTimersByTimeAsync(0)
+    const asset = await running
+    const cleanup = asset.detachView('batch').catch(error => error)
+    await vi.advanceTimersByTimeAsync(6000)
+    expect(await cleanup).toBeUndefined()
+    expect(host.terminated).not.toHaveBeenCalled()
+    asset.dispose()
+  })
+
+  it('still stops a stuck graphics cleanup after fifteen seconds', async () => {
+    const host = browser({ bootDelay: 0, detachDelay: 20000 })
+    const running = executeIsolated(code)
+    await vi.dynamicImportSettled()
+    await vi.advanceTimersByTimeAsync(0)
+    const asset = await running
+    const cleanup = asset.detachView('batch').catch(error => error)
+    await vi.advanceTimersByTimeAsync(14999)
+    expect(host.terminated).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect((await cleanup).message).toMatch(/Asset detach timed out/)
     expect(host.terminated).toHaveBeenCalledTimes(1)
   })
 })
