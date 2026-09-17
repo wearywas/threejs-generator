@@ -78,17 +78,6 @@ test('another tab cannot silently replace the recovery copy', async ({ page, con
   await expect(page.getByRole('region', { name: 'Workspace recovery' })).toContainText('A modern apartment building.')
 })
 
-async function expectTimerToAdvance(timer) {
-  const seconds = async () => {
-    const match = (await timer.innerText()).match(/^Elapsed (\d+):([0-5]\d)$/)
-    return match ? Number(match[1]) * 60 + Number(match[2]) : -1
-  }
-  await expect.poll(seconds).toBeGreaterThanOrEqual(0)
-  const initial = await seconds()
-  // Check real progress, not that automation reached the timer in under 10s.
-  await expect.poll(seconds).toBeGreaterThan(initial)
-}
-
 test('a generated result is recovered without another request; repair progress and modal cancellation stay truthful', async ({ page }, testInfo) => {
   const code = `function createAsset(THREE) {
     const root = new THREE.Group();
@@ -113,7 +102,9 @@ test('a generated result is recovered without another request; repair progress a
   await expect(page.getByRole('status').filter({ hasText: 'Why another request?' })).toContainText('The generated code stopped with an error while building the model.')
   expect(requests[1].messages[0].content).toContain('Deliberate test failure')
   await page.screenshot({ path: testInfo.outputPath('repair-progress.png') })
-  await expectTimerToAdvance(page.getByRole('timer'))
+  // Clock progression is covered by progressClock.spec.js; this flow keeps real
+  // time for the worker, storage, downloads and cancellation boundaries.
+  await expect(page.getByRole('timer')).toHaveText(/^Elapsed \d+:[0-5]\d$/)
   await repairRoute.fulfill({ json: { provider: 'openai', model: 'synthetic-test-model', text: code } })
   await expect(page.getByLabel('Recovery status')).toHaveText(/Recovery saved in this browser/)
   await expect(page.getByRole('timer')).not.toBeVisible()
@@ -137,7 +128,7 @@ test('a generated result is recovered without another request; repair progress a
     await dialog.getByRole('button', { name: submit, exact: true }).click()
     await expect.poll(() => held?.request().postDataJSON().task).toBe(task)
     await expect(dialog.getByRole('status')).toHaveText('Waiting for model response...')
-    await expectTimerToAdvance(dialog.getByRole('timer'))
+    await expect(dialog.getByRole('timer')).toHaveText(/^Elapsed \d+:[0-5]\d$/)
     await dialog.getByRole('button', { name: cancel, exact: true }).click()
     await expect(dialog).not.toBeVisible()
     await expect(page.getByRole('timer')).not.toBeVisible()

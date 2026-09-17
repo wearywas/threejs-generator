@@ -181,7 +181,8 @@ test('cancelling an in-flight generation restores controls and keeps the prior a
   expectGenerationPayload(heldRoute.request(), prompt)
   await expect(page.getByRole('status').filter({ hasText: 'Waiting for model response' })).toBeVisible()
   await expect(page.getByText('Model request 1 · maximum 3', { exact: true })).toBeVisible()
-  await expect(page.getByRole('timer')).toHaveText(/Elapsed 0:0[1-9]/)
+  // Progress ticking is checked with controlled time in progressClock.spec.js.
+  await expect(page.getByRole('timer')).toHaveText(/^Elapsed \d+:[0-5]\d$/)
   await expect(page.getByRole('textbox', { name: 'Describe your asset', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: 'Cancel request', exact: true }).click()
   try {

@@ -16,7 +16,9 @@ test('invalid model coordinates produce a readable retry explanation in the real
   const explanation = page.getByRole('status').filter({ hasText: 'Why another request?' })
   await expect(explanation).toHaveText('Why another request? The generated model has an invalid size or position, so it could not be displayed.')
   await expect(page.getByText('Model request 2 · maximum 3', { exact: true })).toBeVisible()
-  await expect(page.getByRole('timer')).toHaveText(/Elapsed 0:0[1-9]/)
+  // Do not impose a wall-clock speed requirement on worker startup/repair.
+  // Exact ticking and reset behavior live in progressClock.spec.js.
+  await expect(page.getByRole('timer')).toHaveText(/^Elapsed \d+:[0-5]\d$/)
   await expect(explanation).not.toContainText(/invalid_type|runtimeSignals|nan|…/)
   await page.screenshot({ path: testInfo.outputPath('readable-retry-reason.png') })
   await page.getByRole('button', { name: 'Cancel request', exact: true }).click()
