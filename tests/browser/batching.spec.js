@@ -5,6 +5,8 @@ function sceneJSON(bytes) {
 }
 
 test('preview GLB preserves the shown apartment grid and remains separate from batchable JS', async ({ page }, testInfo) => {
+  // Multiple bounded preview replacements and GLB encodes share this test.
+  test.setTimeout(120000)
   await page.goto('/')
   await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
   await page.getByRole('button', { name: 'Load Park Apartments starter', exact: true }).click()
@@ -18,7 +20,9 @@ test('preview GLB preserves the shown apartment grid and remains separate from b
   await dialog.getByLabel(/Rotation Jitter/).fill('0')
   await dialog.getByLabel(/Scale Jitter/).fill('0')
   const button = dialog.getByRole('button', { name: 'Download preview GLB', exact: true })
-  await expect(button).toBeEnabled()
+  // Rapid setting changes can finish a superseded attach (15s), detach it
+  // (15s), then attach the chosen layout (15s). Wait for that real ready state.
+  await expect(button).toBeEnabled({ timeout: 50000 })
   const grid = await downloadBytes(page, 'Download preview GLB')
   expect(grid.name).toBe(single.name.replace('.glb', '.layout.glb'))
   const json = sceneJSON(grid.bytes)
@@ -70,7 +74,10 @@ test('static viewport stops presenting idle frames but wakes for orbit, resize, 
   const beforeTriangles = glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)
   const beforeEdit = Number(await canvas.getAttribute('data-frames'))
   await page.getByRole('slider', { name: 'Mature Mushroom Count', exact: true }).fill('3')
-  await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled({ timeout: 50000 })
+  // A failed rebuild deliberately retains the old asset; report its error
+  // directly rather than mistaking that recovery behavior for a bad export.
+  await expect(page.getByRole('alert')).not.toBeVisible()
   expect(glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)).toBeLessThan(beforeTriangles)
   await expect.poll(async () => Number(await canvas.getAttribute('data-frames'))).toBeGreaterThan(beforeEdit)
   await page.screenshot({ path: testInfo.outputPath('edited-mushrooms.png') })

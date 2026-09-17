@@ -48,12 +48,18 @@ export function createNeighborhood(container, { onEdit, onHover, onSelect }) {
   controls.rotateSpeed = .65;
   controls.zoomSpeed = .75;
   const resetView = () => {
+    // Clear pending orbit/pan inertia, then update raycasting immediately so a
+    // click after Reset view does not depend on the next rendered frame.
+    const damping = controls.enableDamping;
+    controls.enableDamping = false;
     controls.reset();
     controls.target.set(0, 1, 0);
     camera.position.set(78, 74, 92);
     camera.zoom = 1;
     camera.updateProjectionMatrix();
     controls.update();
+    controls.enableDamping = damping;
+    camera.updateMatrixWorld();
   };
   resetView();
 

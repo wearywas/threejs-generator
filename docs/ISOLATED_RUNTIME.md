@@ -60,6 +60,8 @@ Other handle operations attach/resize/detach views, set a camera, capture a thum
 
 WebGL canvases are created inside the worker. Completed ImageBitmaps cross to a host `bitmaprenderer` canvas, with one acknowledged frame in flight per view. The host sends bounded camera and size data, not DOM-linked WebGL canvases. [isolatedPreview.js](../src/components/isolatedPreview.js) coalesces camera/resize requests, serializes replacement attaches behind prior detaches, and prevents stale views from presenting on a reused canvas.
 
+Each worker reuses at most two renderer/canvas pairs across preview replacements. Cleared scenes and reset cameras retain their identities too, bounding Three r169's per-scene/camera transmission targets for glass. Detaching a view disposes its owned variants, helpers, shadow map, optimization data, and render lists, but retains the context for the next view. This avoids a Chromium software-driver stall during forced context loss after bitmap presentation. Idle renderers retain their last bounded drawing-buffer allocation; final asset disposal terminates the worker and releases both contexts. No geometry, material, or rendering-quality reduction is involved.
+
 [assetWorkspace.js](../src/runtime/assetWorkspace.js) owns committed runtimes and provides leases for views/export/capture. A pending operation's abort stops its candidate; it does not stop the previous committed asset. Replacement releases the old workspace owner after committing the new document/runtime; consumer leases delay final disposal. If a committed worker later fails, its document remains editable, but remote preview/export operations fail until another runtime is built.
 
 ## Deadlines and bounded messages
@@ -69,9 +71,10 @@ Values below are enforced in `client.js`, `transport.js`, `protocol.js`, `worker
 | Operation/data | Current bound |
 | --- | --- |
 | Broker startup | 10 seconds |
+| Worker bundle startup (before sending generated code) | 30 seconds |
 | Factory initialization | 5 seconds by default; caller timeout clamped to 100 ms–30 seconds |
-| View attach | 15 seconds |
-| Resize, camera, detach, liveness reply | 5 seconds |
+| View attach / detach (including GPU resource cleanup) | 15 seconds |
+| Resize, camera, liveness reply | 5 seconds |
 | Thumbnail / instance analysis | 10 seconds |
 | Single GLB, layout GLB, optimization | 30 seconds |
 | Pending/waiting RPC requests | 32 |
@@ -85,7 +88,7 @@ Values below are enforced in `client.js`, `transport.js`, `protocol.js`, `worker
 | Thumbnail | Requested dimensions 1–512 per axis; returned PNG data URL at most 2,000,000 code units |
 | Metadata / instance analysis | Serialized size limits of 32,000 / 8,000,000 code units plus schemas |
 
-The host pings the private port every second, allowing five seconds for a reply. This detects a blocked worker event loop, including synchronous animation loops when no user command is pending. GLB export and optimization have their own 30-second deadline; heartbeat dispatch is paused during that work, and other commands queue behind it so short deadlines do not expire while waiting for export. A host-owned timeout closes pending requests, terminates the worker through its lifetime channel, and removes the iframe. Unlike an in-thread timer, this can stop synchronous generated JavaScript without running it on the editor thread.
+When no command is pending, the host pings the private port every second, allowing five seconds for a reply. This detects a blocked worker event loop, including synchronous animation loops when no user command is pending. Commands (including pings) are dispatched one at a time, with each deadline starting at dispatch rather than while waiting in the bounded queue. Preview construction, export, and other active work therefore retain their own deadlines without an unrelated shorter heartbeat interrupting them. A host-owned timeout closes active and queued requests, terminates the worker through its lifetime channel, and removes the iframe. Unlike an in-thread timer, this can stop synchronous generated JavaScript without running it on the editor thread.
 
 ## Export and optimization behavior
 

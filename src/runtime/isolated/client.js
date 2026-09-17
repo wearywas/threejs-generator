@@ -63,15 +63,20 @@ export async function executeIsolated(code, options = {}) {
       window.addEventListener('message', ready)
       document.body.appendChild(iframe)
     })
+    // The broker being ready does not mean its bundled worker has loaded yet.
+    // Keep startup bounded without spending the generated factory's deadline.
+    // Allow slow trusted bootstrap under software-rendering load. This
+    // allowance never executes generated code.
+    await rpc.request('ready', {}, [], 30000, emptyReply)
     const timeout = Math.max(100, Math.min(options.timeout || 5000, 30000))
     const metadata = await rpc.request('init', { code, options: input }, [], timeout, validateMetadata)
     // A private port ping also detects infinite animation loops, including when no
     // user command is outstanding. Generated code cannot manufacture its replies.
     let pingPending = false
     heartbeat = setInterval(() => {
-      // Export/optimization has its own bounded 30-second deadline, including synchronous
-      // encoding. A shorter heartbeat must not terminate valid export work.
-      if (pingPending || rpc.exporting) return
+      // Active commands already have bounded deadlines. Check idle runtimes
+      // without imposing a shorter heartbeat on legitimate preview/export work.
+      if (pingPending || rpc.busy) return
       pingPending = true
       rpc.request('ping', {}, [], 5000, emptyReply).catch(() => {}).finally(() => { pingPending = false })
     }, 1000)
@@ -88,7 +93,9 @@ export async function executeIsolated(code, options = {}) {
       },
       resizeView: (id, config) => rpc.request('resize', { id, config }, [], 5000, emptyReply),
       setCamera: (id, camera) => rpc.request('camera', { id, camera }, [], 5000, emptyReply),
-      detachView: id => { views.delete(id); return rpc.request('detach', { id }, [], 5000, emptyReply) },
+      // Deleting a batch's GPU resources can wait for software-driver work,
+      // so cleanup gets the same bounded allowance as constructing a view.
+      detachView: id => { views.delete(id); return rpc.request('detach', { id }, [], 15000, emptyReply) },
       captureThumbnail: (width = 256, height = 256) => rpc.request('thumbnail', { width, height }, [], 10000, validateThumbnail),
       exportGLB: () => rpc.request('glb', {}, [], 30000, validateGLB),
       exportViewGLB: id => rpc.request('viewGLB', { id }, [], 30000, validateGLB),

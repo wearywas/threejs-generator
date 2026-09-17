@@ -2,8 +2,7 @@
 export function createTransport(port, terminate, onEvent = () => {}) {
   let serial = 0
   let closed = null
-  let exporting = null
-  let waiting = 0
+  let activeId = null
   const pending = new Map()
   const listeners = new Set()
   const close = (error = new Error('Asset runtime was disposed.')) => {
@@ -13,6 +12,7 @@ export function createTransport(port, terminate, onEvent = () => {}) {
     terminate()
     for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error) }
     pending.clear()
+    activeId = null
     for (const listener of listeners) listener(error)
     listeners.clear()
   }
@@ -25,7 +25,7 @@ export function createTransport(port, terminate, onEvent = () => {}) {
       close(new Error(`Isolated preview stopped: ${data.error}`))
       return
     }
-    if (!data || !Number.isSafeInteger(data.id) || !pending.has(data.id)) return
+    if (!data || !Number.isSafeInteger(data.id) || data.id !== activeId) return
     const request = pending.get(data.id)
     try {
       if (typeof data.ok !== 'boolean') throw new Error('Invalid runtime response.')
@@ -33,37 +33,36 @@ export function createTransport(port, terminate, onEvent = () => {}) {
       const result = data.ok ? request.validate(data.value) : null
       clearTimeout(request.timer)
       pending.delete(data.id)
+      activeId = null
       if (data.ok) request.resolve(result)
       else request.reject(new Error(data.error))
+      dispatchNext()
     } catch (error) { close(error) }
   }
   port.onmessageerror = () => close(new Error('Unreadable runtime response.'))
+  function dispatchNext() {
+    if (closed || activeId !== null || pending.size === 0) return
+    const [id, next] = pending.entries().next().value
+    activeId = id
+    next.timer = setTimeout(() => close(new Error(`Asset ${next.type} timed out; the isolated worker was stopped.`)), next.timeout)
+    try { port.postMessage({ id, type: next.type, payload: next.payload }, next.transfer) } catch (error) { close(error) }
+  }
   function request(type, payload = {}, transfer = [], timeout = 5000, validate = value => value) {
     if (closed) return Promise.reject(closed)
-    if (pending.size + waiting >= 32) return Promise.reject(new Error('Too many pending runtime requests.'))
-    // The worker serializes commands. Do not start a short camera/detach/etc.
-    // deadline while a longer export is still occupying that queue.
-    if (exporting && type !== 'ping') {
-      waiting++
-      const resume = () => { waiting--; return request(type, payload, transfer, timeout, validate) }
-      return exporting.then(resume, resume)
-    }
-    const result = new Promise((resolve, reject) => {
+    if (pending.size >= 32) return Promise.reject(new Error('Too many pending runtime requests.'))
+    // Match the worker's command queue on the host: each deadline begins when
+    // work is dispatched, not while it waits behind another bounded operation.
+    // Include pings so an already in-flight heartbeat cannot time out behind
+    // synchronous preview construction or export.
+    return new Promise((resolve, reject) => {
       const id = ++serial
-      const timer = setTimeout(() => close(new Error(`Asset ${type} timed out; the isolated worker was stopped.`)), timeout)
-      pending.set(id, { resolve, reject, timer, validate })
-      try { port.postMessage({ id, type, payload }, transfer) } catch (error) { close(error) }
+      pending.set(id, { resolve, reject, type, payload, transfer, timeout, validate, timer: null })
+      dispatchNext()
     })
-    if (type === 'glb' || type === 'viewGLB' || type === 'viewOptimization') {
-      exporting = result
-      const settled = () => { if (exporting === result) exporting = null }
-      result.then(settled, settled)
-    }
-    return result
   }
   return {
     close,
-    get exporting() { return exporting !== null },
+    get busy() { return pending.size > 0 },
     notify(type, payload) {
       if (!closed) port.postMessage({ id: 0, type, payload })
     },

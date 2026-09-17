@@ -7,6 +7,8 @@ for (const [id, name, key, label, value] of [
   ['alpine-cottage', 'Alpine Cottage', 'railingCount', 'Front Railing Balusters', 4],
 ]) {
   test(`${name}: offline edit, JS/GLB export and saved-copy restoration`, async ({ page }) => {
+    // Several bounded worker startups and exports occur in this round trip.
+    test.setTimeout(120000)
     const record = JSON.parse(await readFile(new URL(`../../public/starters/${id}.json`, import.meta.url), 'utf8'))
     await page.route('**/api/message', () => { throw new Error('Starter editing must not request a model') })
     await page.goto('/')
@@ -16,10 +18,11 @@ for (const [id, name, key, label, value] of [
     await expect.poll(() => card.locator('img').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true)
     await card.click()
     const slider = page.getByRole('slider', { name: label, exact: true })
-    await expect(slider).toHaveValue(String(record.params[key]))
+    await expect(slider).toHaveValue(String(record.params[key]), { timeout: 50000 })
     const originalTriangles = glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)
     await slider.fill(String(value))
-    await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled({ timeout: 50000 })
+    await expect(page.getByRole('alert')).not.toBeVisible()
     const js = await downloadBytes(page, 'Download .js')
     // Parse only the data section; never evaluate downloaded factory source.
     const preset = JSON.parse(js.bytes.toString('utf8').match(/^export const assetPreset = JSON\.parse\(String\.raw`([^`]*?)`\);$/m)[1])
@@ -39,12 +42,12 @@ for (const [id, name, key, label, value] of [
     await page.getByRole('button', { name: 'Discard recovery', exact: true }).click()
     await page.getByRole('button', { name: 'Library', exact: true }).click()
     await library.getByRole('button', { name: `Load Edited ${name}`, exact: true }).click()
-    await expect(slider).toHaveValue(String(value))
+    await expect(slider).toHaveValue(String(value), { timeout: 50000 })
     await expect(page.getByLabel('Asset seed')).toHaveText(String(record.seed))
     expect(glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)).toBe(editedTriangles)
     await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
     await card.click()
-    await expect(slider).toHaveValue(String(record.params[key]))
+    await expect(slider).toHaveValue(String(record.params[key]), { timeout: 50000 })
     expect(glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)).toBe(originalTriangles)
   })
 }
@@ -97,13 +100,15 @@ test('built-in template JSON editor and controls work without CDN resources', as
 })
 
 test('an infinite imported factory times out without losing the last working asset', async ({ page }) => {
+  test.setTimeout(90000)
   await page.goto('/')
   await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
   await page.getByRole('button', { name: 'Load Park Apartments starter', exact: true }).click()
   await expect(page.getByLabel('Asset seed')).toHaveText('94918309')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByLabel('Import', { exact: true }).setInputFiles({ name: 'infinite.js', mimeType: 'text/javascript', buffer: Buffer.from('function createAsset(){while(true){}}') })
-  await expect(page.getByText(/Asset init timed out; the isolated worker was stopped/)).toBeVisible({ timeout: 15000 })
+  // Allow broker + worker startup before the independently enforced 5s factory limit.
+  await expect(page.getByText(/Asset init timed out; the isolated worker was stopped/)).toBeVisible({ timeout: 50000 })
   await expect(page.getByLabel('Asset seed')).toHaveText('94918309')
   await expect(page.getByRole('button', { name: 'Download GLB', exact: true })).toBeEnabled()
   const glb = await downloadBytes(page, 'Download GLB')

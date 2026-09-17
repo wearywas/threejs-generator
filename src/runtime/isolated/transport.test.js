@@ -3,7 +3,7 @@ import { MessageChannel } from 'node:worker_threads'
 import { createTransport } from './transport.js'
 
 describe('runtime request ownership', () => {
-  it.each(['glb', 'viewOptimization'])('keeps %s deadlines bounded and rejects commands waiting behind a hung operation', async type => {
+  it.each(['glb', 'viewOptimization', 'attach', 'thumbnail', 'analyze'])('keeps %s deadlines bounded and rejects commands waiting behind a hung operation', async type => {
     vi.useFakeTimers()
     const sent = []
     const port = { postMessage: message => sent.push(message), close() {} }
@@ -12,11 +12,11 @@ describe('runtime request ownership', () => {
       const exporting = rpc.request(type, {}, [], 30000)
       const waiting = rpc.request('detach')
       const results = Promise.allSettled([exporting, waiting])
-      expect(rpc.exporting).toBe(true)
+      expect(rpc.busy).toBe(true)
       await vi.advanceTimersByTimeAsync(30001)
       expect((await results).every(result => result.status === 'rejected' && result.reason.message.includes(`${type} timed out`))).toBe(true)
       expect(sent.map(message => message.type)).toEqual([type])
-      expect(rpc.exporting).toBe(false)
+      expect(rpc.busy).toBe(false)
     } finally { rpc.close(); vi.useRealTimers() }
   })
 
@@ -30,11 +30,45 @@ describe('runtime request ownership', () => {
     try {
       await expect(rpc.request('resize')).rejects.toThrow(/Too many/)
       port.onmessage({ data: { id: sent[0].id, ok: false, error: 'Export not supported' } })
-      await Promise.resolve(); await Promise.resolve()
-      expect(sent).toHaveLength(32)
-      for (const message of sent.slice(1)) port.onmessage({ data: { id: message.id, ok: true, value: null } })
+      for (let i = 1; i < 32; i++) {
+        expect(sent).toHaveLength(i + 1)
+        port.onmessage({ data: { id: sent[i].id, ok: true, value: null } })
+      }
       expect((await all).slice(1).every(result => result.status === 'fulfilled')).toBe(true)
-      expect(rpc.exporting).toBe(false)
+      expect(rpc.busy).toBe(false)
+    } finally { rpc.close() }
+  })
+  it.each(['attach', 'thumbnail', 'analyze'])('does not run a short heartbeat or camera deadline behind %s', async type => {
+    vi.useFakeTimers()
+    const sent = []
+    const port = { postMessage: message => sent.push(message), close() {} }
+    const terminate = vi.fn()
+    const rpc = createTransport(port, terminate)
+    try {
+      const results = Promise.allSettled([
+        rpc.request(type, {}, [], 15000), rpc.request('ping'), rpc.request('camera'),
+      ])
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(terminate).not.toHaveBeenCalled()
+      expect(sent.map(message => message.type)).toEqual([type])
+      for (let i = 0; i < 3; i++) {
+        port.onmessage({ data: { id: sent[i].id, ok: true, value: null } })
+      }
+      expect((await results).every(result => result.status === 'fulfilled')).toBe(true)
+      expect(rpc.busy).toBe(false)
+    } finally { rpc.close(); vi.useRealTimers() }
+  })
+  it('finishes an already dispatched heartbeat before starting a long operation', async () => {
+    const sent = []
+    const port = { postMessage: message => sent.push(message), close() {} }
+    const rpc = createTransport(port, () => {})
+    const results = Promise.allSettled([rpc.request('ping'), rpc.request('attach', {}, [], 15000)])
+    try {
+      expect(sent.map(message => message.type)).toEqual(['ping'])
+      port.onmessage({ data: { id: sent[0].id, ok: true, value: null } })
+      expect(sent.map(message => message.type)).toEqual(['ping', 'attach'])
+      port.onmessage({ data: { id: sent[1].id, ok: true, value: null } })
+      expect((await results).every(result => result.status === 'fulfilled')).toBe(true)
     } finally { rpc.close() }
   })
   it.each(['camera', 'resize', 'detach', 'attach', 'thumbnail', 'analyze'])('starts the %s deadline after an in-flight export, without stopping the asset', async type => {

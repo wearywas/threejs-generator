@@ -15,28 +15,42 @@ async function plotPoint(page, index) {
   return { x: bounds.x + (point.x + 1) * bounds.width / 2, y: bounds.y + (1 - point.y) * bounds.height / 2 };
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+async function loadPlanner(page, url = '/') {
+  // Keep the real frame loop, but don't flood a software GPU with background
+  // animation while Playwright reads controls or dispatches user input.
+  await page.clock.install({ time: new Date('2026-09-17T12:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-09-17T13:00:00Z'));
+  await page.goto(url);
+  await renderFrame(page);
   await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
-});
+}
+
+const renderFrame = page => page.clock.fastForward(50);
 
 test('real clicks grow and remove floors, preserve palette, undo, and survive reload', async ({ page }) => {
+  await loadPlanner(page);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const point = await plotPoint(page, 11);
   await page.mouse.click(point.x, point.y);
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('1');
   const first = (await readCity(page)).buildings['plot-11'];
   await page.mouse.click(point.x, point.y);
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('2');
   expect((await readCity(page)).buildings['plot-11']).toEqual({ ...first, floors: 2 });
   await page.mouse.click(point.x, point.y, { button: 'right' });
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('1');
   await page.mouse.click(point.x, point.y, { button: 'right' });
+  await renderFrame(page);
   await expect(page.locator('#building-count')).toHaveText('0');
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('1');
   expect((await readCity(page)).buildings['plot-11']).toEqual(first);
   await page.reload();
+  await renderFrame(page);
   await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#floor-count')).toHaveText('1');
   expect((await readCity(page)).buildings['plot-11']).toEqual(first);
@@ -44,33 +58,44 @@ test('real clicks grow and remove floors, preserve palette, undo, and survive re
 });
 
 test('orbit, return-to-origin drag, Shift-pan, and right-drag never edit a plot', async ({ page }) => {
+  await loadPlanner(page);
   for (const kind of ['orbit', 'pan', 'right']) {
     const point = await plotPoint(page, 11);
     if (kind === 'pan') await page.keyboard.down('Shift');
     await page.mouse.move(point.x, point.y);
     await page.mouse.down({ button: kind === 'right' ? 'right' : 'left' });
     await page.mouse.move(point.x + 60, point.y - 20, { steps: 4 });
+    await renderFrame(page);
     await page.mouse.move(point.x, point.y, { steps: 4 });
+    await renderFrame(page);
     await page.mouse.up({ button: kind === 'right' ? 'right' : 'left' });
     if (kind === 'pan') await page.keyboard.up('Shift');
     await expect(page.locator('#floor-count')).toHaveText('0');
     await page.getByRole('button', { name: 'Reset view' }).click();
   }
+  // No settling delay: Reset view must restore picking before the next frame.
   const point = await plotPoint(page, 11);
   await page.mouse.click(point.x, point.y);
   await expect(page.locator('#floor-count')).toHaveText('1');
+  await renderFrame(page);
 });
 
 test('keyboard controls respect the floor cap and undo rapid edits', async ({ page }) => {
+  await loadPlanner(page);
   await page.getByLabel('Choose a plot').selectOption('plot-3');
   const add = page.getByRole('button', { name: 'Add floor to selected plot' });
   await add.focus();
-  for (let i = 0; i < 10; i++) await page.keyboard.press('Enter');
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press('Enter');
+    await renderFrame(page);
+  }
   await expect(page.locator('#floor-count')).toHaveText('10');
   await expect(add).toBeDisabled();
   await page.getByRole('button', { name: 'Remove floor from selected plot' }).click();
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('9');
   await page.keyboard.press('Control+z');
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('10');
   await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
 });
@@ -78,13 +103,14 @@ test('keyboard controls respect the floor cap and undo rapid edits', async ({ pa
 test('mobile touch tools and reduced motion remain usable without overflow', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   const page = await context.newPage();
-  await page.goto(baseURL);
-  await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
+  await loadPlanner(page, baseURL);
   const point = await plotPoint(page, 11);
   await page.touchscreen.tap(point.x, point.y);
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('1');
   await page.getByRole('button', { name: 'Remove', exact: true }).tap();
   await page.touchscreen.tap(point.x, point.y);
+  await renderFrame(page);
   await expect(page.locator('#floor-count')).toHaveText('0');
   await page.getByRole('button', { name: 'How to play' }).tap();
   await expect(page.locator('#help-panel')).toBeVisible();
