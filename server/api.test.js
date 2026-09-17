@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createServer, request as httpRequest } from 'node:http'
 import { createApi } from './api.js'
+import { requestModel } from './providers.js'
+import { event, streamEvents } from './testFixtures/anthropicStream.js'
 
 const servers = []
 afterEach(async () => {
+  vi.restoreAllMocks()
   await Promise.all(servers.splice(0).map(server => new Promise(resolve => { server.closeAllConnections(); server.close(resolve) })))
 })
 async function start(options = {}) {
@@ -25,6 +28,75 @@ const message = { task: 'creative', system: 'Return source.', messages: [{ role:
 const reply = { text: 'function createAsset() {}', provider: 'openai', model: 'gpt-6-astra', requestedModel: 'gpt-6-astra', usage: {}, stopReason: 'completed' }
 
 describe('local API boundary', () => {
+  it('allows fifteen minutes for generation and reports expiry as a timeout instead of cancellation', async () => {
+    let expire, deadlineMs, began
+    const started = new Promise(resolve => { began = resolve })
+    const originalSetTimeout = globalThis.setTimeout
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation((callback, ms, ...args) => {
+      if (ms >= 60 * 1000) { expire = callback; deadlineMs = ms }
+      return originalSetTimeout(callback, ms, ...args)
+    })
+    const app = await start({ requestModel: ({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      began()
+    }) })
+    const { headers } = await app.handshake()
+    const pending = app.request('/api/message', { method: 'POST', headers, body: JSON.stringify(message) })
+    await started
+    expect(expire).toBeTypeOf('function')
+    expire()
+    const response = await pending
+    expect(response.status).toBe(504)
+    expect(await response.json()).toMatchObject({ code: 'provider_timeout', retryable: false })
+    expect(deadlineMs).toBe(15 * 60 * 1000)
+  })
+
+  it.each([false, true])('buffers a real HTTP event stream until completion (interrupted=%s)', async interrupted => {
+    let finishStream, sawHeaders, providerCalls = 0
+    const gate = new Promise(resolve => { finishStream = resolve })
+    const headersReceived = new Promise(resolve => { sawHeaders = resolve })
+    const complete = { type: 'message', role: 'assistant', model: 'claude-fable-5-1', content: [{ type: 'text', text: 'function createAsset() {}' }], stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 20 } }
+    const provider = createServer(async (req, res) => {
+      providerCalls++
+      const chunks = []
+      for await (const chunk of req) chunks.push(chunk)
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      if (body.stream !== true) { res.writeHead(400); res.end(); return }
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.flushHeaders()
+      res.write(streamEvents(complete).slice(0, 3).map(event).join(''))
+      await gate
+      res.end(interrupted ? '' : streamEvents(complete).slice(3).map(event).join(''))
+    })
+    await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve))
+    servers.push(provider)
+    const app = await start({ env: { ANTHROPIC_API_KEY: 'synthetic-key' }, requestModel: args => requestModel(args, async (url, options) => {
+      expect(url).toBe('https://api.anthropic.com/v1/messages')
+      const response = await fetch(`http://127.0.0.1:${provider.address().port}/`, options)
+      sawHeaders()
+      return response
+    }) })
+    const { headers } = await app.handshake()
+    let clientReceivedResponse = false
+    const pending = app.request('/api/message', { method: 'POST', headers, body: JSON.stringify(message) }).then(response => { clientReceivedResponse = true; return response })
+    try {
+      await headersReceived
+      await new Promise(resolve => setImmediate(resolve))
+      expect(clientReceivedResponse).toBe(false)
+    } finally { finishStream() }
+    const response = await pending
+    const result = await response.json()
+    expect(providerCalls).toBe(1)
+    if (interrupted) {
+      expect(response.status).toBe(502)
+      expect(result).toMatchObject({ code: 'stream_interrupted', retryable: false })
+      expect(JSON.stringify(result)).not.toContain('createAsset')
+    } else {
+      expect(response.status).toBe(200)
+      expect(result).toMatchObject({ text: complete.content[0].text, model: complete.model, usage: complete.usage, stopReason: 'end_turn' })
+    }
+  })
+
   it('keeps configured keys out of the handshake and uses selected provider server-side', async () => {
     const app = await start({ env: { ANTHROPIC_API_KEY: 'env-private' }, requestModel: async input => {
       expect(input.provider).toBe('openai')

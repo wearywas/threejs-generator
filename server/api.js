@@ -156,7 +156,7 @@ export function createApi({ env = process.env, requestModel = defaultRequestMode
       const controller = new AbortController()
       const cancel = () => { if (!res.writableEnded) controller.abort() }
       res.once('close', cancel)
-      const timer = setTimeout(() => controller.abort(), 6 * 60 * 1000)
+      const timer = setTimeout(() => controller.abort(new ModelError('provider_timeout', 'The provider exceeded the 15-minute request limit. No code was executed. Try again or choose another model.', 504)), 15 * 60 * 1000)
       timer.unref()
       try {
         const provider = session.provider

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { requestModel } from './providers.js'
+import { streamed } from './testFixtures/anthropicStream.js'
 
 const input = {
   provider: 'anthropic', model: 'claude-fable-5', apiKey: 'test-secret',
@@ -22,8 +23,8 @@ describe('provider requests', () => {
     const response = await requestModel(input, async (url, options) => {
       expect(url).toBe('https://api.anthropic.com/v1/messages')
       expect(options.headers['x-api-key']).toBe('test-secret')
-      expect(JSON.parse(options.body)).toEqual({ model: 'claude-fable-5', max_tokens: 32000, system: 'Return code.', messages: input.messages })
-      return Response.json(anthropic)
+      expect(JSON.parse(options.body)).toEqual({ model: 'claude-fable-5', max_tokens: 32000, system: 'Return code.', messages: input.messages, stream: true })
+      return streamed(anthropic)
     })
     expect(response).toEqual({ text: 'function createAsset() {}', provider: 'anthropic', requestedModel: 'claude-fable-5', model: 'claude-fable-5', usage: { input_tokens: 100, output_tokens: 20 }, stopReason: 'end_turn' })
     expect(JSON.stringify(response)).not.toContain('private')
@@ -50,7 +51,7 @@ describe('provider requests', () => {
     ['openai', { ...openai, output: [{ type: 'message', content: [{ type: 'refusal', refusal: 'No' }] }] }, 'refusal'],
     ['openai', { ...openai, status: 'failed', error: { message: 'secret-sensitive' } }, 'provider_error']
   ])('rejects unsafe-to-execute %s output (%s)', async (provider, fixture, code) => {
-    await expect(requestModel({ ...input, provider }, async () => Response.json(fixture))).rejects.toMatchObject({ code, retryable: false })
+    await expect(requestModel({ ...input, provider }, async () => provider === 'anthropic' ? streamed(fixture) : Response.json(fixture))).rejects.toMatchObject({ code, retryable: false })
   })
 
   it.each([401, 403, 429, 500])('returns safe HTTP %i errors without provider response bodies', async (status) => {

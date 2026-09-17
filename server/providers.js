@@ -1,13 +1,6 @@
-/** Safe, actionable errors; upstream bodies can contain sensitive request data. */
-export class ModelError extends Error {
-  constructor(code, message, status = 502) {
-    super(message)
-    this.name = 'ModelError'
-    this.code = code
-    this.status = status
-    this.retryable = false
-  }
-}
+import { readAnthropicStream } from './anthropicStream.js'
+import { ModelError, providerHttpError, transportError } from './modelErrors.js'
+export { ModelError } from './modelErrors.js'
 
 /** Call one selected provider. No SDK retries, model fallbacks, or arbitrary URLs. */
 export async function requestModel({ provider, model, apiKey, system, messages, maxTokens, signal }, fetchImpl = fetch) {
@@ -22,31 +15,27 @@ export async function requestModel({ provider, model, apiKey, system, messages, 
     ? { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
     : { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
   const body = isAnthropic
-    ? { model, max_tokens: maxTokens, system, messages }
+    ? { model, max_tokens: maxTokens, system, messages, stream: true }
     : { model, store: false, instructions: system, input: messages, max_output_tokens: maxTokens }
 
   let response
   try {
     response = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body), signal })
   } catch (error) {
-    if (signal?.aborted || error.name === 'AbortError') throw error
-    throw new ModelError('connection_error', 'Could not reach the selected provider. Check your connection and try again.')
+    throw transportError(error, signal)
   }
   if (!response.ok) {
     // Do not echo the upstream error body, request headers, or prompt into logs/UI.
-    await response.body?.cancel()
-    if ([401, 403].includes(response.status)) throw new ModelError('authentication_error', 'The provider rejected this API key or account access. Check Model settings.', 401)
-    if (response.status === 429) throw new ModelError('rate_limit', 'Provider rate limit or API quota reached. Check your API billing and retry later.', 429)
-    if ([400, 404, 422].includes(response.status)) throw new ModelError('invalid_request', 'The provider rejected this model or request. Check the model ID and your account access.', 400)
-    throw new ModelError('provider_error', 'The provider could not complete the request. Try again later.')
+    try { await response.body?.cancel() } catch { /* Keep the known HTTP status. */ }
+    throw providerHttpError(response.status)
   }
 
   let data
   try {
-    data = await response.json()
+    data = isAnthropic ? await readAnthropicStream(response, signal) : await response.json()
+    signal?.throwIfAborted()
   } catch (error) {
-    if (signal?.aborted || error.name === 'AbortError') throw error
-    throw new ModelError('invalid_response', 'The provider returned an unreadable response.')
+    throw transportError(error, signal, true)
   }
   const blocks = isAnthropic ? data.content : data.output?.filter(item => item.type === 'message').flatMap(item => item.content || [])
   if (data.stop_reason === 'refusal' || blocks?.some(block => block.type === 'refusal')) {
