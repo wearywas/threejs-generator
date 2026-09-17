@@ -106,12 +106,13 @@ describe('honest generation progress', () => {
     expect(html).not.toContain('Elapsed')
   })
 
-  it('explains another request using escaped error text without implying a critic rejection', () => {
+  it('explains another request in plain language without exposing raw code or implying a critic rejection', () => {
     operation = generationProgress.start('creative')
     operation.report('repair', { attempt: 2, repairAttempt: 1, retryReason: 'Execution failed: <branch> is not defined' })
     const html = render()
     expect(html).toContain('Why another request?')
-    expect(html).toContain('Execution failed: &lt;branch&gt; is not defined')
+    expect(html).toContain('The generated code uses a value that was never defined.')
+    expect(html).not.toContain('Execution failed:')
     expect(html).not.toContain('<branch>')
     expect(html).not.toMatch(/critic rejection/i)
   })

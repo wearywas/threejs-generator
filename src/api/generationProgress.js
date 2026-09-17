@@ -1,3 +1,5 @@
+import { summarizeRetryReason } from './retryReason.js'
+
 /** In-memory operation status; it neither schedules retries nor changes API billing. */
 export function createGenerationProgressStore() {
   let snapshot = null
@@ -26,10 +28,10 @@ export function createGenerationProgressStore() {
       snapshot = null
       notify()
     }
-    const report = (stage, { attempt = snapshot?.attempt, repairAttempt = snapshot?.repairAttempt, retryReason = snapshot?.retryReason } = {}) => {
+    const report = (stage, { attempt = snapshot?.attempt, repairAttempt = snapshot?.repairAttempt, retryReason } = {}) => {
       if (closed || active?.id !== id) return
-      const reason = typeof retryReason === 'string' ? retryReason.replace(/\s+/g, ' ').trim() : ''
-      snapshot = { ...snapshot, stage, attempt, repairAttempt, retryReason: reason.length > 500 ? `${reason.slice(0, 499)}…` : reason, elapsedMs: Math.max(0, Date.now() - startedAt) }
+      const reason = retryReason === undefined ? snapshot?.retryReason : summarizeRetryReason(retryReason)
+      snapshot = { ...snapshot, stage, attempt, repairAttempt, retryReason: reason, elapsedMs: Math.max(0, Date.now() - startedAt) }
       notify()
     }
 
