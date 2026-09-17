@@ -56,7 +56,11 @@ addEventListener('message', function connect(event) {
     try {
       let value = null
       let transfer = []
-      if (type === 'init') {
+      if (type === 'ready') {
+        // A private-port acknowledgement after the trusted bundle and its
+        // capability restrictions are installed; no generated code runs here.
+        if (asset) throw new Error('Runtime is already initialized.')
+      } else if (type === 'init') {
         if (asset) throw new Error('Runtime is already initialized.')
         source = payload.code
         inputs = payload.options

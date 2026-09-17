@@ -71,6 +71,7 @@ Values below are enforced in `client.js`, `transport.js`, `protocol.js`, `worker
 | Operation/data | Current bound |
 | --- | --- |
 | Broker startup | 10 seconds |
+| Worker bundle startup (before sending generated code) | 10 seconds |
 | Factory initialization | 5 seconds by default; caller timeout clamped to 100 ms–30 seconds |
 | View attach | 15 seconds |
 | Resize, camera, detach, liveness reply | 5 seconds |

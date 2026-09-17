@@ -103,7 +103,8 @@ test('an infinite imported factory times out without losing the last working ass
   await expect(page.getByLabel('Asset seed')).toHaveText('94918309')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByLabel('Import', { exact: true }).setInputFiles({ name: 'infinite.js', mimeType: 'text/javascript', buffer: Buffer.from('function createAsset(){while(true){}}') })
-  await expect(page.getByText(/Asset init timed out; the isolated worker was stopped/)).toBeVisible({ timeout: 15000 })
+  // Allow broker + worker startup before the independently enforced 5s factory limit.
+  await expect(page.getByText(/Asset init timed out; the isolated worker was stopped/)).toBeVisible({ timeout: 30000 })
   await expect(page.getByLabel('Asset seed')).toHaveText('94918309')
   await expect(page.getByRole('button', { name: 'Download GLB', exact: true })).toBeEnabled()
   const glb = await downloadBytes(page, 'Download GLB')
