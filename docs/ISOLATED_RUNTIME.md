@@ -60,6 +60,8 @@ Other handle operations attach/resize/detach views, set a camera, capture a thum
 
 WebGL canvases are created inside the worker. Completed ImageBitmaps cross to a host `bitmaprenderer` canvas, with one acknowledged frame in flight per view. The host sends bounded camera and size data, not DOM-linked WebGL canvases. [isolatedPreview.js](../src/components/isolatedPreview.js) coalesces camera/resize requests, serializes replacement attaches behind prior detaches, and prevents stale views from presenting on a reused canvas.
 
+Each worker reuses at most two renderer/canvas pairs across preview replacements. Cleared scenes and reset cameras retain their identities too, bounding Three r169's per-scene/camera transmission targets for glass. Detaching a view disposes its owned variants, helpers, shadow map, optimization data, and render lists, but retains the context for the next view. This avoids a Chromium software-driver stall during forced context loss after bitmap presentation. Idle renderers retain their last bounded drawing-buffer allocation; final asset disposal terminates the worker and releases both contexts. No geometry, material, or rendering-quality reduction is involved.
+
 [assetWorkspace.js](../src/runtime/assetWorkspace.js) owns committed runtimes and provides leases for views/export/capture. A pending operation's abort stops its candidate; it does not stop the previous committed asset. Replacement releases the old workspace owner after committing the new document/runtime; consumer leases delay final disposal. If a committed worker later fails, its document remains editable, but remote preview/export operations fail until another runtime is built.
 
 ## Deadlines and bounded messages

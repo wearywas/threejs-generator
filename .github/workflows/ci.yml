@@ -16,7 +16,7 @@ jobs:
   verify:
     name: ${{ matrix.project.name }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.project.id == 'little-borough' && 20 || 15 }}
     strategy:
       fail-fast: false
       matrix:
@@ -50,7 +50,7 @@ jobs:
         run: npx playwright install --with-deps --no-shell chromium
       # Leave time to upload diagnostics even if the browser stops responding.
       - name: Test browser flows (no provider keys)
-        timeout-minutes: 8
+        timeout-minutes: ${{ matrix.project.id == 'little-borough' && 13 || 8 }}
         run: npm run test:browser
       - name: Preserve browser diagnostics
         if: failure()

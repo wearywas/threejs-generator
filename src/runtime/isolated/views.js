@@ -154,6 +154,7 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
   if (!asset?.root?.isObject3D) throw new Error('Views require an actual asset root.')
   if (!Number.isSafeInteger(seed)) throw new Error('Invalid view seed.')
   const views = new Map()
+  const renderers = []
   const ownedRoots = new WeakSet([asset.root])
   const releasedCopies = new WeakSet()
   const pendingTicks = new WeakSet()
@@ -208,12 +209,14 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
     for (const copy of view.copies.splice(0)) releaseCopy(copy)
     for (const helper of view.helpers.splice(0)) cleanup(() => disposeObject(helper))
     cleanup(() => view.sun?.shadow.dispose())
-    if (view.contextLost) cleanup(() => view.canvas.removeEventListener('webglcontextlost', view.contextLost))
     if (view.renderer) {
-      cleanup(() => view.renderer.dispose())
-      cleanup(() => view.renderer.forceContextLoss())
+      // Keep the context alive for the next preview, but not its old scene.
+      cleanup(() => view.renderer.renderLists.dispose())
+      view.rendererSlot.inUse = false
       view.renderer = null
+      view.rendererSlot = null
     }
+    view.canvas = null
     cleanup(() => view.scene.clear())
     if (![...views.values()].some(entry => entry.ready)) stopTimer()
   }
@@ -221,6 +224,45 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
   function assertLive() {
     if (disposed) throw new Error('Views have been disposed.')
     if (failed) throw new Error('View runtime has failed.')
+  }
+
+  function acquireRenderer(view, canvas, settings) {
+    let slot = renderers.find(entry => !entry.inUse)
+    if (!slot) {
+      if (renderers.length >= 2) throw new Error('At most two renderers may be allocated.')
+      // Bound even the constructor's initial drawing buffer allocation.
+      canvas.width = settings.width
+      canvas.height = settings.height
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
+      slot = { renderer, canvas, scene: view.scene, camera: new THREE.PerspectiveCamera(), inUse: false, sizeKey: null,
+        contextLost: () => fatal(new Error('Worker view WebGL context was lost.')) }
+      renderers.push(slot)
+      canvas.addEventListener('webglcontextlost', slot.contextLost)
+    }
+    slot.inUse = true
+    view.rendererSlot = slot
+    view.renderer = slot.renderer
+    view.canvas = slot.canvas
+    // r169 caches transmission targets by scene/camera identity. Retain both
+    // identities, reset their settings, and move only this view's fresh content.
+    if (view.scene !== slot.scene) {
+      // Scene.copy in r169 skips null fields instead of clearing old values.
+      slot.scene.background = slot.scene.environment = slot.scene.fog = slot.scene.overrideMaterial = null
+      slot.scene.copy(view.scene, false)
+      slot.scene.onBeforeRender = view.scene.onBeforeRender
+      slot.scene.onAfterRender = view.scene.onAfterRender
+      slot.scene.add(...view.scene.children)
+      view.scene = slot.scene
+    }
+    view.camera = slot.camera
+    view.camera.clear()
+    delete view.camera.viewport
+    view.camera.copy(new THREE.PerspectiveCamera(60, settings.width / settings.height, 0.1, 1000), false)
+    const sizeKey = JSON.stringify([settings.width, settings.height, settings.pixelRatio])
+    if (sizeKey !== slot.sizeKey) {
+      setRendererSize(slot.renderer, settings)
+      slot.sizeKey = sizeKey
+    }
   }
 
   function active(view) {
@@ -308,13 +350,9 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
         view.scene.add(asset.root)
       }
       if (!active(view)) return
-      // Bound even the renderer constructor's initial drawing buffer allocation.
-      canvas.width = settings.width
-      canvas.height = settings.height
       // This canvas was created in the worker, never transferred from the DOM.
       // Only finished ImageBitmaps cross the opaque-origin boundary for display.
-      view.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-      setRendererSize(view.renderer, settings)
+      acquireRenderer(view, canvas, settings)
       view.renderer.shadowMap.enabled = true
       view.renderer.shadowMap.type = THREE.PCFSoftShadowMap
       view.onDemand = (settings.batch ? view.copies : [asset]).every(canRenderOnDemand)
@@ -323,7 +361,6 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
       view.renderer.toneMapping = THREE.ACESFilmicToneMapping
       view.renderer.toneMappingExposure = 1.2
       addEnvironment(view)
-      view.camera = new THREE.PerspectiveCamera(60, settings.width / settings.height, 0.1, 1000)
       view.target = fitCameraToObject(view.content, view.camera)
       if (settings.camera) {
         view.camera.position.fromArray(settings.camera.position)
@@ -332,8 +369,6 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
         view.camera.far = Math.max(view.camera.far, view.camera.position.distanceTo(view.target) * 4)
         view.camera.updateProjectionMatrix()
       }
-      view.contextLost = () => { if (active(view)) fatal(new Error('Worker view WebGL context was lost.')) }
-      canvas.addEventListener('webglcontextlost', view.contextLost)
       view.renderer.render(view.scene, view.camera)
       present(view)
       view.dirty = false
@@ -354,6 +389,7 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
     const settings = normalizeViewConfig({ ...config, pixelRatio: config?.pixelRatio ?? view.config.pixelRatio })
     try {
       setRendererSize(view.renderer, settings)
+      view.rendererSlot.sizeKey = JSON.stringify([settings.width, settings.height, settings.pixelRatio])
       view.config = { ...settings, ...(view.config.batch ? { batch: view.config.batch } : {}) }
       view.camera.aspect = settings.width / settings.height
       view.camera.updateProjectionMatrix()
@@ -477,6 +513,10 @@ export function createViews(asset, createVariant, onFatal, { seed = asset?.seed 
       disposed = true
       stopTimer()
       for (const view of [...views.values()]) releaseView(view)
+      for (const slot of renderers.splice(0)) {
+        cleanup(() => slot.canvas.removeEventListener('webglcontextlost', slot.contextLost))
+        cleanup(() => slot.renderer.dispose())
+      }
     },
   }
 }

@@ -7,13 +7,22 @@ const gpu = vi.hoisted(() => ({ renderers: [] }))
 vi.mock('three', async original => {
   const three = await original()
   return { ...three, WebGLRenderer: class {
-    constructor() {
+    constructor({ canvas }) {
+      this.domElement = canvas
+      this.renderLists = { dispose: vi.fn() }
+      this.sceneIds = new Set(); this.cameraIds = new Set()
       this.shadowMap = { autoUpdate: true, needsUpdate: false }; this.draws = 0; this.shadows = 0
       this.info = { autoReset: true, render: { calls: 0, triangles: 0 }, reset: () => { this.info.render = { calls: 0, triangles: 0 } } }
       gpu.renderers.push(this)
     }
-    setPixelRatio() {} setSize() {} dispose() {} forceContextLoss() {}
+    setPixelRatio(value) { this.pixelRatio = value }
+    setSize(width, height) { this.size = [width, height] }
+    dispose() { this.disposals = (this.disposals || 0) + 1 }
+    forceContextLoss() { this.forcedLoss = true }
     render(scene, camera) {
+      this.lastCamera = camera
+      scene.onBeforeRender(this, scene, camera)
+      this.sceneIds.add(scene.id); this.cameraIds.add(camera.id)
       scene.updateMatrixWorld(true); camera.updateMatrixWorld(true)
       this.draws++
       this.info.reset()
@@ -24,6 +33,7 @@ vi.mock('three', async original => {
       })
       if (this.shadowMap.autoUpdate || this.shadowMap.needsUpdate) this.shadows++
       this.shadowMap.needsUpdate = false
+      scene.onAfterRender(this, scene, camera)
     }
   } }
 })
@@ -48,6 +58,69 @@ beforeEach(async () => {
 afterEach(() => { views?.dispose(); views = null; vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('worker rendering invalidations', () => {
+  it('reuses two renderers across batch replacements while releasing every old scene', async () => {
+    const original = asset()
+    const copyDisposals = []
+    views = createViews(original, async () => {
+      const copy = asset()
+      const dispose = vi.fn()
+      copy.dispose = dispose
+      copyDisposals.push(dispose)
+      return copy
+    }, error => { throw error })
+    await views.attach('main', canvas(), { width: 100, height: 100 })
+    const originalParent = original.root.parent
+    for (let i = 0; i < 20; i++) {
+      await views.attach('batch', canvas(), { width: 200 + i, height: 100, batch: { gridSize: 1 } })
+      expect(gpu.renderers).toHaveLength(2)
+      const renderer = gpu.renderers[1]
+      expect(renderer.size).toEqual([200 + i, 100])
+      expect(renderer.shadows).toBe(i + 1)
+      views.detach('batch')
+      views.detach('batch')
+      expect(copyDisposals[i]).toHaveBeenCalledTimes(1)
+      expect(renderer.disposals || 0).toBe(0)
+      expect(renderer.forcedLoss).not.toBe(true)
+      expect(renderer.renderLists.dispose).toHaveBeenCalledTimes(i + 1)
+      // r169 caches transmission targets by scene/camera identity. Replacement
+      // content must not allocate a new internal target on every attachment.
+      expect(renderer.sceneIds.size).toBe(1)
+      expect(renderer.cameraIds.size).toBe(1)
+      expect(original.root.parent).toBe(originalParent)
+    }
+    views.dispose()
+    views.dispose()
+    expect(gpu.renderers.every(renderer => renderer.disposals === 1)).toBe(true)
+    expect(original.root.parent).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('reuses a cleared scene and reset camera without retaining old helpers or settings', async () => {
+    const original = asset()
+    views = createViews(original, null, error => { throw error })
+    await views.attach('main-1', canvas(), { width: 100, height: 100 })
+    const firstScene = original.root.parent
+    firstScene.background = new THREE.Color('#ff0000')
+    firstScene.fog = new THREE.Fog('#ffffff', 1, 2)
+    const staleHook = vi.fn()
+    firstScene.onBeforeRender = firstScene.onAfterRender = staleHook
+    gpu.renderers[0].lastCamera.viewport = new THREE.Vector4(0, 0, 10, 10)
+    const oldHelpers = firstScene.children.filter(object => object !== original.root)
+    views.detach('main-1')
+    expect(firstScene.children).toEqual([])
+    await views.attach('main-2', canvas(), { width: 200, height: 150, pixelRatio: 2 })
+    expect(gpu.renderers).toHaveLength(1)
+    expect(original.root.parent).toBe(firstScene)
+    expect(firstScene.fog).toBeNull()
+    expect(staleHook).not.toHaveBeenCalled()
+    expect(gpu.renderers[0].lastCamera.viewport).toBeUndefined()
+    expect(firstScene.background.getHexString()).not.toBe('ff0000')
+    expect(original.root.parent.children.some(object => oldHelpers.includes(object))).toBe(false)
+    expect(gpu.renderers[0].size).toEqual([200, 150])
+    expect(gpu.renderers[0].pixelRatio).toBe(2)
+    expect(gpu.renderers[0].shadows).toBe(2)
+  })
+
   it('leaves static frames and shadow maps untouched until camera or size changes', async () => {
     views = createViews(asset(), null, error => { throw error })
     await views.attach('main', canvas(), { width: 100, height: 100 })

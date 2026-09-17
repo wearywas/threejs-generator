@@ -15,12 +15,13 @@ async function plotPoint(page, index) {
   return { x: bounds.x + (point.x + 1) * bounds.width / 2, y: bounds.y + (1 - point.y) * bounds.height / 2 };
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+async function loadPlanner(page, url = '/') {
+  await page.goto(url);
   await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
-});
+}
 
 test('real clicks grow and remove floors, preserve palette, undo, and survive reload', async ({ page }) => {
+  await loadPlanner(page);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const point = await plotPoint(page, 11);
   await page.mouse.click(point.x, point.y);
@@ -44,6 +45,7 @@ test('real clicks grow and remove floors, preserve palette, undo, and survive re
 });
 
 test('orbit, return-to-origin drag, Shift-pan, and right-drag never edit a plot', async ({ page }) => {
+  await loadPlanner(page);
   for (const kind of ['orbit', 'pan', 'right']) {
     const point = await plotPoint(page, 11);
     if (kind === 'pan') await page.keyboard.down('Shift');
@@ -63,6 +65,7 @@ test('orbit, return-to-origin drag, Shift-pan, and right-drag never edit a plot'
 });
 
 test('keyboard controls respect the floor cap and undo rapid edits', async ({ page }) => {
+  await loadPlanner(page);
   await page.getByLabel('Choose a plot').selectOption('plot-3');
   const add = page.getByRole('button', { name: 'Add floor to selected plot' });
   await add.focus();
@@ -79,8 +82,7 @@ test('keyboard controls respect the floor cap and undo rapid edits', async ({ pa
 test('mobile touch tools and reduced motion remain usable without overflow', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   const page = await context.newPage();
-  await page.goto(baseURL);
-  await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
+  await loadPlanner(page, baseURL);
   const point = await plotPoint(page, 11);
   await page.touchscreen.tap(point.x, point.y);
   await expect(page.locator('#floor-count')).toHaveText('1');
