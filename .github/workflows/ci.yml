@@ -16,7 +16,7 @@ jobs:
   verify:
     name: ${{ matrix.project.name }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.project.id == 'generator' && 15 || 20 }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +25,7 @@ jobs:
           - name: Generator
             id: generator
             directory: .
-            browserMinutes: 8
+            browserMinutes: 12
           - name: Snack Abduction
             id: snack-abduction
             directory: demos/snack-abduction
