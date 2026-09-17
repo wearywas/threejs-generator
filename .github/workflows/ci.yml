@@ -14,13 +14,26 @@ concurrency:
 
 jobs:
   verify:
-    name: Node 24 / ${{ matrix.os }}
+    name: ${{ matrix.project.name }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        project:
+          - name: Generator
+            id: generator
+            directory: .
+          - name: Snack Abduction
+            id: snack-abduction
+            directory: demos/snack-abduction
+          - name: Little Borough
+            id: little-borough
+            directory: demos/little-borough
+    defaults:
+      run:
+        working-directory: ${{ matrix.project.directory }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -29,46 +42,23 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: ${{ matrix.project.directory }}/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run build
       - name: Install test browser
-        run: npx playwright install --with-deps chromium
-      - name: Test fresh-user and workbench flows (no provider keys)
-        run: npm run test:browser
-      - name: Install Snack Abduction demo
-        run: npm --prefix demos/snack-abduction ci
-      - name: Test Snack Abduction gameplay
-        working-directory: demos/snack-abduction
-        run: npm test
-      - name: Build Snack Abduction demo
-        working-directory: demos/snack-abduction
-        run: npm run build
-      - name: Test Snack Abduction browser flows
-        working-directory: demos/snack-abduction
-        run: npm run test:browser
-      - name: Install Little Borough demo
-        run: npm --prefix demos/little-borough ci
-      - name: Test Little Borough state and generated assets
-        working-directory: demos/little-borough
-        run: npm test
-      - name: Build Little Borough demo
-        working-directory: demos/little-borough
-        run: npm run build
-      - name: Test Little Borough browser flows
-        working-directory: demos/little-borough
+        run: npx playwright install --with-deps --no-shell chromium
+      # Leave time to upload diagnostics even if the browser stops responding.
+      - name: Test browser flows (no provider keys)
+        timeout-minutes: 8
         run: npm run test:browser
       - name: Preserve browser diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: browser-diagnostics-${{ matrix.os }}
+          name: browser-diagnostics-${{ matrix.project.id }}-${{ matrix.os }}
           path: |
-            playwright-report/
-            test-results/
-            demos/snack-abduction/playwright-report/
-            demos/snack-abduction/test-results/
-            demos/little-borough/playwright-report/
-            demos/little-borough/test-results/
+            ${{ matrix.project.directory }}/playwright-report/
+            ${{ matrix.project.directory }}/test-results/
           retention-days: 7
           if-no-files-found: ignore

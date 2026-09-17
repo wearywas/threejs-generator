@@ -69,9 +69,9 @@ export async function executeIsolated(code, options = {}) {
     // user command is outstanding. Generated code cannot manufacture its replies.
     let pingPending = false
     heartbeat = setInterval(() => {
-      // Export/optimization has its own bounded 30-second deadline, including synchronous
-      // encoding. A shorter heartbeat must not terminate valid export work.
-      if (pingPending || rpc.exporting) return
+      // Active commands already have bounded deadlines. Check idle runtimes
+      // without imposing a shorter heartbeat on legitimate preview/export work.
+      if (pingPending || rpc.busy) return
       pingPending = true
       rpc.request('ping', {}, [], 5000, emptyReply).catch(() => {}).finally(() => { pingPending = false })
     }, 1000)

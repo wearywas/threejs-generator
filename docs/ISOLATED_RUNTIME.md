@@ -85,7 +85,7 @@ Values below are enforced in `client.js`, `transport.js`, `protocol.js`, `worker
 | Thumbnail | Requested dimensions 1–512 per axis; returned PNG data URL at most 2,000,000 code units |
 | Metadata / instance analysis | Serialized size limits of 32,000 / 8,000,000 code units plus schemas |
 
-The host pings the private port every second, allowing five seconds for a reply. This detects a blocked worker event loop, including synchronous animation loops when no user command is pending. GLB export and optimization have their own 30-second deadline; heartbeat dispatch is paused during that work, and other commands queue behind it so short deadlines do not expire while waiting for export. A host-owned timeout closes pending requests, terminates the worker through its lifetime channel, and removes the iframe. Unlike an in-thread timer, this can stop synchronous generated JavaScript without running it on the editor thread.
+When no command is pending, the host pings the private port every second, allowing five seconds for a reply. This detects a blocked worker event loop, including synchronous animation loops when no user command is pending. Commands (including pings) are dispatched one at a time, with each deadline starting at dispatch rather than while waiting in the bounded queue. Preview construction, export, and other active work therefore retain their own deadlines without an unrelated shorter heartbeat interrupting them. A host-owned timeout closes active and queued requests, terminates the worker through its lifetime channel, and removes the iframe. Unlike an in-thread timer, this can stop synchronous generated JavaScript without running it on the editor thread.
 
 ## Export and optimization behavior
 

@@ -20,6 +20,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:5198',
     browserName: 'chromium',
+    // Full Chromium uses the same headless rendering path as the desktop browser.
+    channel: 'chromium',
     headless: true,
     viewport: { width: 1440, height: 1000 },
     trace: 'retain-on-failure',
