@@ -54,6 +54,8 @@ jobs:
       # Leave time to upload diagnostics even if the browser stops responding.
       - name: Test browser flows (no provider keys)
         timeout-minutes: ${{ matrix.project.browserMinutes }}
+        env:
+          THREEJS_ISOLATED_BROWSER: ${{ matrix.os == 'windows-latest' && matrix.project.id == 'generator' && '1' || '0' }}
         run: npm run test:browser
       - name: Preserve browser diagnostics
         if: failure()

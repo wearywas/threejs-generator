@@ -1,6 +1,22 @@
 import { test as base, expect } from '@playwright/test'
+import { collectGraphicsDiagnostics } from '../helpers/graphicsDiagnostics.js'
+
+// A browser context isolates storage, but not Chromium's graphics process.
+// Windows CI can opt into process isolation without changing app deadlines,
+// scene quality, or any test's multi-tab/reload behavior.
+const processIsolation = process.env.THREEJS_ISOLATED_BROWSER === '1' ? {
+  context: async ({ playwright, browserName, launchOptions, headless, channel, contextOptions, baseURL, viewport, storageState, acceptDownloads }, use, testInfo) => {
+    const browser = await playwright[browserName].launch({ ...launchOptions, headless, channel })
+    try {
+      await collectGraphicsDiagnostics(browser, testInfo)
+      const context = await browser.newContext({ ...contextOptions, baseURL, viewport, storageState, acceptDownloads })
+      await use(context)
+    } finally { await browser.close() }
+  },
+} : {}
 
 export const test = base.extend({
+  ...processIsolation,
   localOnly: [async ({ context, baseURL }, use) => {
     const external = [], errors = []
     const origin = new URL(baseURL).origin
