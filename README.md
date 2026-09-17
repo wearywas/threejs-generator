@@ -4,6 +4,12 @@ Turn text into editable Three.js. Export as GLB.
 
 A local, open-source workbench for generating 3D assets with an OpenAI or Anthropic model. The result is JavaScript you can inspect and edit—not just a mesh. Ask for editable controls, adjust the asset locally, and export it to Blender or your own Three.js project.
 
+## Video demo
+
+A two-minute walkthrough of the generator and both included demos. 4K, no audio.
+
+https://github.com/user-attachments/assets/547f7ee0-b832-459c-87d1-4e17de85a96c
+
 | Park Apartments | Woodland Mushrooms | Alpine Cottage |
 | --- | --- | --- |
 | ![Generated apartment building](public/starters/park-apartments.png) | ![Generated mushroom-covered log](public/starters/woodland-mushrooms.png) | ![Generated timber cottage](public/starters/alpine-cottage.png) |
