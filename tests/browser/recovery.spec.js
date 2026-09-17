@@ -72,7 +72,7 @@ test('another tab cannot silently replace the recovery copy', async ({ page, con
   await second.getByRole('button', { name: 'Try an example', exact: true }).click()
   await second.getByRole('button', { name: 'Load Woodland Mushrooms starter', exact: true }).click()
   // The recovery write follows broker/worker startup and factory initialization.
-  await expect(second.getByRole('alert')).toContainText('Another tab updated the recovery copy', { timeout: 30000 })
+  await expect(second.getByRole('alert')).toContainText('Another tab updated the recovery copy', { timeout: 50000 })
   await second.close()
   await page.reload()
   await expect(page.getByRole('region', { name: 'Workspace recovery' })).toContainText('A modern apartment building.')

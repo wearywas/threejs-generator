@@ -79,11 +79,27 @@ describe('isolated worker startup deadlines', () => {
     expect(host.removed).toHaveBeenCalledTimes(1)
   })
 
-  it('bounds startup and never sends generated code to an unresponsive worker', async () => {
-    const host = browser({ bootDelay: 20000 })
+  it('allows a slow trusted bootstrap without sending generated code early', async () => {
+    const host = browser({ bootDelay: 15000 })
     const result = executeIsolated(code).catch(error => error)
     await vi.dynamicImportSettled()
-    await vi.advanceTimersByTimeAsync(10000)
+    await vi.advanceTimersByTimeAsync(14999)
+    expect(host.sent).toEqual(['ready'])
+    expect(host.terminated).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    const asset = await result
+    expect(asset.triangleCount).toBe(12)
+    expect(host.sent).toEqual(['ready', 'init'])
+    asset.dispose()
+  })
+
+  it('bounds startup and never sends generated code to an unresponsive worker', async () => {
+    const host = browser({ bootDelay: 40000 })
+    const result = executeIsolated(code).catch(error => error)
+    await vi.dynamicImportSettled()
+    await vi.advanceTimersByTimeAsync(29999)
+    expect(host.terminated).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
     expect((await result).message).toMatch(/Asset ready timed out/)
     expect(host.sent).toEqual(['ready'])
     expect(host.terminated).toHaveBeenCalledTimes(1)

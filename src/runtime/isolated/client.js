@@ -65,7 +65,9 @@ export async function executeIsolated(code, options = {}) {
     })
     // The broker being ready does not mean its bundled worker has loaded yet.
     // Keep startup bounded without spending the generated factory's deadline.
-    await rpc.request('ready', {}, [], 10000, emptyReply)
+    // Allow slow trusted bootstrap under software-rendering load. This
+    // allowance never executes generated code.
+    await rpc.request('ready', {}, [], 30000, emptyReply)
     const timeout = Math.max(100, Math.min(options.timeout || 5000, 30000))
     const metadata = await rpc.request('init', { code, options: input }, [], timeout, validateMetadata)
     // A private port ping also detects infinite animation loops, including when no

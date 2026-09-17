@@ -74,7 +74,10 @@ test('static viewport stops presenting idle frames but wakes for orbit, resize, 
   const beforeTriangles = glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)
   const beforeEdit = Number(await canvas.getAttribute('data-frames'))
   await page.getByRole('slider', { name: 'Mature Mushroom Count', exact: true }).fill('3')
-  await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Save to Library', exact: true })).toBeEnabled({ timeout: 50000 })
+  // A failed rebuild deliberately retains the old asset; report its error
+  // directly rather than mistaking that recovery behavior for a bad export.
+  await expect(page.getByRole('alert')).not.toBeVisible()
   expect(glbTriangleCount((await downloadBytes(page, 'Download GLB')).bytes)).toBeLessThan(beforeTriangles)
   await expect.poll(async () => Number(await canvas.getAttribute('data-frames'))).toBeGreaterThan(beforeEdit)
   await page.screenshot({ path: testInfo.outputPath('edited-mushrooms.png') })
