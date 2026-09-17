@@ -22,9 +22,14 @@ export default defineConfig({
     browserName: 'chromium',
     // Full Chromium uses the same headless rendering path as the desktop browser.
     channel: 'chromium',
+    // Hosted Windows has no hardware GPU. WARP avoids SwiftShader teardown stalls.
+    ...(process.env.CI && process.platform === 'win32' ? {
+      launchOptions: { args: ['--use-gl=angle', '--use-angle=d3d11-warp'] },
+    } : {}),
     headless: true,
     viewport: { width: 1440, height: 1000 },
-    trace: 'retain-on-failure',
+    // Preserve DOM/source diagnostics without continuous WebGL screen readbacks.
+    trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true },
     screenshot: 'only-on-failure',
   },
   webServer: {

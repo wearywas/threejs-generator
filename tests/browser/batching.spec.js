@@ -5,6 +5,8 @@ function sceneJSON(bytes) {
 }
 
 test('preview GLB preserves the shown apartment grid and remains separate from batchable JS', async ({ page }, testInfo) => {
+  // Multiple bounded preview replacements and GLB encodes share this test.
+  test.setTimeout(120000)
   await page.goto('/')
   await page.getByRole('button', { name: 'Browse templates', exact: true }).click()
   await page.getByRole('button', { name: 'Load Park Apartments starter', exact: true }).click()
@@ -18,7 +20,9 @@ test('preview GLB preserves the shown apartment grid and remains separate from b
   await dialog.getByLabel(/Rotation Jitter/).fill('0')
   await dialog.getByLabel(/Scale Jitter/).fill('0')
   const button = dialog.getByRole('button', { name: 'Download preview GLB', exact: true })
-  await expect(button).toBeEnabled()
+  // Rapid setting changes can finish a superseded attach (15s), detach it
+  // (5s), then attach the chosen layout (15s). Wait for that real ready state.
+  await expect(button).toBeEnabled({ timeout: 40000 })
   const grid = await downloadBytes(page, 'Download preview GLB')
   expect(grid.name).toBe(single.name.replace('.glb', '.layout.glb'))
   const json = sceneJSON(grid.bytes)

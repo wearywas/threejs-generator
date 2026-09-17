@@ -62,3 +62,6 @@ jobs:
             ${{ matrix.project.directory }}/test-results/
           retention-days: 7
           if-no-files-found: ignore
+          # Interrupted runs may leave their trace in .playwright-artifacts-*.
+          # Paths above are restricted to test output, never the project root.
+          include-hidden-files: true

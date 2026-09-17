@@ -56,6 +56,7 @@ test('orbit, return-to-origin drag, Shift-pan, and right-drag never edit a plot'
     await expect(page.locator('#floor-count')).toHaveText('0');
     await page.getByRole('button', { name: 'Reset view' }).click();
   }
+  // No settling delay: Reset view must restore picking before the next frame.
   const point = await plotPoint(page, 11);
   await page.mouse.click(point.x, point.y);
   await expect(page.locator('#floor-count')).toHaveText('1');

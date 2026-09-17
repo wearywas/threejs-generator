@@ -10,9 +10,13 @@ export default defineConfig({
   use: {
     // Full Chromium's new headless mode avoids headless-shell WebGL stalls.
     channel: 'chromium',
+    ...(process.env.CI && process.platform === 'win32' ? {
+      launchOptions: { args: ['--use-gl=angle', '--use-angle=d3d11-warp'] },
+    } : {}),
     baseURL: 'http://127.0.0.1:5199',
     viewport: { width: 1440, height: 900 },
-    trace: 'retain-on-failure',
+    // Avoid continuous screencast readbacks; retain DOM/source traces and failure PNGs.
+    trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true },
     screenshot: 'only-on-failure',
   },
   webServer: {
