@@ -16,7 +16,7 @@ jobs:
   verify:
     name: ${{ matrix.project.name }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.project.id == 'little-borough' && 20 || 15 }}
+    timeout-minutes: ${{ matrix.project.id == 'generator' && 15 || 20 }}
     strategy:
       fail-fast: false
       matrix:
@@ -25,12 +25,15 @@ jobs:
           - name: Generator
             id: generator
             directory: .
+            browserMinutes: 8
           - name: Snack Abduction
             id: snack-abduction
             directory: demos/snack-abduction
+            browserMinutes: 10
           - name: Little Borough
             id: little-borough
             directory: demos/little-borough
+            browserMinutes: 13
     defaults:
       run:
         working-directory: ${{ matrix.project.directory }}
@@ -50,7 +53,7 @@ jobs:
         run: npx playwright install --with-deps --no-shell chromium
       # Leave time to upload diagnostics even if the browser stops responding.
       - name: Test browser flows (no provider keys)
-        timeout-minutes: ${{ matrix.project.id == 'little-borough' && 13 || 8 }}
+        timeout-minutes: ${{ matrix.project.browserMinutes }}
         run: npm run test:browser
       - name: Preserve browser diagnostics
         if: failure()

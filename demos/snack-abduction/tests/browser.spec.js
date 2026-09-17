@@ -42,7 +42,7 @@ test('real keyboard input lifts, delivers, pauses, and starts a fresh round', as
 test('a complete round ends and replay resets; focus stays inside the result dialog', async ({ page }) => {
   // Advance all 90 seconds through real rendered frames. Hosted software GPUs
   // can take over two wall-clock minutes; do not shorten or skip the round.
-  test.setTimeout(process.env.CI ? 240000 : 120000);
+  test.setTimeout(process.env.CI ? 300000 : 120000);
   await page.setViewportSize({ width: 640, height: 480 });
   await loadWithClock(page);
   await page.getByRole('button', { name: 'Let’s snack' }).click();

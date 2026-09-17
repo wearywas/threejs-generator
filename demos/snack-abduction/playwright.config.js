@@ -5,7 +5,8 @@ export default defineConfig({
   testMatch: '**/browser.spec.js',
   fullyParallel: false,
   workers: 1,
-  timeout: 45000,
+  // Real WebGL input/frames progress slowly on hosted software-rendered runners.
+  timeout: process.env.CI ? 90000 : 45000,
   expect: { timeout: 8000 },
   use: {
     // Full Chromium's new headless mode avoids headless-shell WebGL stalls.
