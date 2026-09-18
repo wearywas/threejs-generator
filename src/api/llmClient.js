@@ -2,10 +2,21 @@
 export function createLlmClient(fetchImpl = (...args) => fetch(...args)) {
   let session = null
   let sessionRequest = null
-  let snapshot = { pending: 0, lastResponse: null, requiresConfirmation: false }
+  let snapshot = { pending: 0, lastResponse: null, requiresConfirmation: false, provider: null, codexAvailable: false }
   const listeners = new Set()
   const active = new Set()
   const notify = patch => { snapshot = { ...snapshot, ...patch }; listeners.forEach(listener => listener()) }
+
+  function updateSession(next, patch = {}) {
+    if (typeof next?.csrfToken !== 'string') {
+      const error = new Error('The local API returned an invalid session. Restart the local server.')
+      error.retryable = false
+      throw error
+    }
+    session = next
+    notify({ provider: next.provider, codexAvailable: Boolean(next.providers?.codex), ...patch })
+    return session
+  }
 
   async function jsonRequest(url, options = {}) {
     try {
@@ -27,22 +38,14 @@ export function createLlmClient(fetchImpl = (...args) => fetch(...args)) {
       const cancelled = original.name === 'AbortError' || options.signal?.aborted
       const error = new Error(cancelled ? 'Generation cancelled. The provider may still charge for work already performed.' : original.message)
       error.name = cancelled ? 'AbortError' : 'ModelRequestError'
-      error.code = original.code || (cancelled ? 'cancelled' : 'connection_error')
+      error.code = cancelled ? 'cancelled' : original.code || 'connection_error'
       error.retryable = false
       throw error
     }
   }
   function getSession() {
     if (!sessionRequest) {
-      sessionRequest = jsonRequest('/api/session').then(next => {
-        if (typeof next.csrfToken !== 'string') {
-          const error = new Error('The local API returned an invalid session. Restart the local server.')
-          error.retryable = false
-          throw error
-        }
-        session = next
-        return session
-      }).finally(() => { sessionRequest = null })
+      sessionRequest = jsonRequest('/api/session').then(next => updateSession(next)).finally(() => { sessionRequest = null })
     }
     return sessionRequest
   }
@@ -78,9 +81,13 @@ export function createLlmClient(fetchImpl = (...args) => fetch(...args)) {
       throw error
     }
     const controller = new AbortController()
+    let requestProvider = null
     active.add(controller)
     notify({ pending: active.size })
     try {
+      const current = session || await waitForSession(controller.signal)
+      controller.signal.throwIfAborted()
+      requestProvider = current.provider
       const result = await post('/api/message', params, controller.signal)
       controller.signal.throwIfAborted()
       if (typeof result.text !== 'string') {
@@ -92,6 +99,13 @@ export function createLlmClient(fetchImpl = (...args) => fetch(...args)) {
       notify({ lastResponse: metadata })
       return { ...metadata, content: [{ type: 'text', text: result.text }] }
     } catch (error) {
+      if (requestProvider && (error.name === 'AbortError' || controller.signal.aborted)) {
+        error = new Error(requestProvider === 'codex'
+          ? 'Generation cancelled. Codex allowance already used is not refundable.'
+          : 'Generation cancelled. The provider may still charge for work already performed.')
+        error.name = 'AbortError'
+        error.code = 'cancelled'
+      }
       error.retryable = false
       throw error
     } finally {
@@ -101,12 +115,17 @@ export function createLlmClient(fetchImpl = (...args) => fetch(...args)) {
   }
   async function saveSettings(settings) {
     const next = await post('/api/settings', settings)
-    session = next
-    notify({ requiresConfirmation: false })
-    return session
+    return updateSession(next, { requiresConfirmation: false })
+  }
+  async function codexAction(action) {
+    const result = await post(`/api/codex/${action}`, {})
+    updateSession(result.session)
+    return result
   }
   return {
     getSession, saveSettings, createMessage,
+    connectCodex: () => codexAction('connect'),
+    loginCodex: () => codexAction('login'),
     cancelRequests: () => active.forEach(controller => controller.abort()),
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
     getSnapshot: () => snapshot

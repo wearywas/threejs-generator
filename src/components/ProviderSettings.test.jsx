@@ -24,6 +24,17 @@ describe('request progress status', () => {
 })
 
 describe('provider key indicator', () => {
+  it.each(['not_connected', 'missing', 'incompatible', 'signed_out', 'api_key', 'connected', 'unavailable'])('describes Codex %s without pretending a provider key exists', state => {
+    const settings = { provider: 'codex', providers: { codex: { model: 'gpt-6-astra', connection: { state } } } }
+    const html = renderToStaticMarkup(<ModelSettingsButton settings={settings} />)
+    expect(html).toContain('Codex (experimental)')
+    expect(html.includes('is-connected')).toBe(state === 'connected')
+    expect(html).not.toContain('API key configured')
+    if (state === 'connected') {
+      expect(html).toContain('authentication detected')
+      expect(html).toContain('Generation not tested')
+    }
+  })
   it('describes the unconfirmed key status before settings have loaded', () => {
     const html = renderToStaticMarkup(<ProviderSettings />)
     expect(html).toContain('title="Checking API key configuration..."')

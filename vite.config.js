@@ -8,7 +8,11 @@ function localApiPlugin(mode) {
   const install = server => {
     // Configuration stays in the Node service, never in the browser bundle.
     const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env }
-    server.middlewares.use(createApi({ env }))
+    const api = createApi({ env })
+    server.middlewares.use(api)
+    server.httpServer?.once('close', () => {
+      void api.close().catch(() => console.error('Codex shutdown failed; the owned connection may still be reserved.'))
+    })
   }
   return { name: 'local-model-api', configureServer: install, configurePreviewServer: install }
 }

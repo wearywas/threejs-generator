@@ -59,8 +59,35 @@ Use [`.env.example`](../.env.example) for an optional root `.env`. Production lo
 | `ANTHROPIC_MODEL_TASK`, `OPENAI_MODEL_TASK` | Replace `TASK` with `SPEC`, `CREATIVE`, `CONVERT`, `ANIMATE` or `EDIT`. |
 | `LLM_ALLOWED_ORIGINS` | Optional comma-separated exact local HTTP origins for companion clients. Empty by default. |
 | `PORT` | `npm start` port, default 4173. Does not configure the Vite development port. |
+| `THREEJS_EXPERIMENTAL_CODEX` | Opt-in Codex provider; enabled only by the exact string `1`. Does not change the initial API provider. |
+| `THREEJS_CODEX_EXECUTABLE` | Absolute path to a trusted supported native Codex CLI binary. No PATH lookup or shell wrapper. |
 
 A session model override wins over task defaults. For Anthropic, precedence is session override → unprefixed task → unprefixed provider-wide → legacy `VITE_ANTHROPIC_MODEL_TASK` → legacy `VITE_ANTHROPIC_MODEL` → built-in default. OpenAI uses the same order without legacy names. `ANTHROPIC_API_KEY` wins over legacy `VITE_ANTHROPIC_API_KEY`. Legacy names are accepted server-side only; `envPrefix: []` prevents automatic Vite browser bundling. Rebuilding cannot revoke secrets exposed in older shared builds; affected keys need rotation.
+
+## Experimental Codex provider
+
+Start with [Codex setup](CODEX_SETUP.md). The ordinary `npm run dev`, `npm run preview`, and `npm start` paths all pass server configuration to the same adapter. No private verification script is needed. It stays opt-in; `LLM_PROVIDER=codex` is not supported. Select Codex and an available catalog model through Model settings after connecting. API model defaults/keys do not select a Codex model.
+
+`server/codex/adapter.js` owns one private stdio App Server connection per server instance, uses a dedicated persistent managed-login profile and empty temporary workspaces, and serializes requests. Keep only one Codex-enabled app server running per OS user; there is no cross-process profile lock. The model sees the task context, not the project's working directory or ordinary Codex profile. The generated-code Worker boundary is unchanged.
+
+`policy.js` accepts only explicitly audited CLI versions and verifies effective configuration, authentication, integrations and thread restrictions. `rpc.js` bounds messages and owns process shutdown; `taskFormats.js` translates creative/convert/edit/animate requests and validates structured results. Unexpected capabilities, incomplete responses and unknown versions fail closed. API-key authentication is rejected for this mode; there is no API fallback. Login uses the runtime's managed ChatGPT flow, not token copying.
+
+Runtime update procedure:
+
+1. Save assets and stop the app. Record the native CLI's `--version`; Desktop may also have replaced the executable path.
+2. Compare that exact upstream release's protocol schemas and capability gates with the last audited version. Generate schemas using the installed binary's `app-server generate-json-schema --experimental --out <temporary-folder>` command. Do not assume a newer version or a read-only sandbox is sufficient.
+3. In a fresh dedicated no-credential profile, test initialization/effective policy, empty integrations/hooks/instruction sources and ephemeral empty-environment thread creation **without a model turn**. Never use a personal profile as the probe workspace.
+4. Add the exact version only after review, with regression coverage for unknown versions and unsafe configuration. Preserve all restrictions. Record the upstream commit, inspected gates, installed-schema differences, no-turn results and live-test limits alongside the change; `server/codex/policy.js` identifies the currently audited source commits.
+5. Run unit/build/browser checks and rehearse normal startup from a clean source copy. Actual sign-in/model checks are separate, explicitly authorized tests; mock responses do not prove account availability. Record Windows/macOS/Linux coverage honestly.
+
+Focused no-model checks:
+
+```sh
+npm test -- server/codex server/codexApi.test.js server/codexLifecycle.test.js
+npm run test:browser -- tests/browser/codexSettings.spec.js tests/browser/codexGeneration.spec.js
+```
+
+The browser tests use synthetic Codex responses through the real API/UI/Worker flow. Do not put authentication profiles, callback URLs, raw App Server logs or actual account credentials into fixtures or CI artifacts.
 
 ## Local API integration
 
@@ -69,7 +96,9 @@ The development and production servers share `server/api.js`. This is a local in
 1. `GET /api/session` with `credentials: 'include'` establishes an HttpOnly session cookie and returns `csrfToken` and non-secret configuration status.
 2. Send POSTs with `credentials: 'include'`, `Content-Type: application/json` and `X-CSRF-Token`. The browser supplies `Origin`; loopback Host and exact Origin are checked.
 3. `POST /api/settings` selects `{ provider, model?, apiKey?, forgetKey? }`.
-4. `POST /api/generate` with `{ prompt }` performs a **paid** creative generation and returns source. Execution and batching remain client responsibilities.
+4. `POST /api/generate` with `{ prompt }` performs a model request using the selected connection and returns source. API-provider requests are billed by the provider; Codex requests consume account allowance. Execution and batching remain client responsibilities.
+
+Codex connection/login and all Codex-provider requests are **same-origin only**, even when a companion origin is otherwise allowed. The same session/CSRF requirements apply. `POST /api/codex/connect` refreshes capability/authentication/catalog state without a model turn; `POST /api/codex/login` explicitly starts/resumes managed sign-in. These routes return 404 when the feature is disabled and do not expose a general App Server RPC proxy.
 
 After session expiry, repeat the handshake and settings selection. `GET /api/health`, `/api/generators` and `/api/generator/:name/schema` provide read-only discovery. `POST /api/asset/code` returns 501 after authentication: built-in source export has no standalone contract. Retired filesystem-save/list routes from the prototype are not supported. Use the current code/tests for additional internal request contracts rather than historical transcript examples.
 

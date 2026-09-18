@@ -29,6 +29,9 @@ export function createLocalServer({ root = path.join(projectRoot, 'dist'), env =
     }
   }
   const server = createServer((req, res) => api(req, res, () => serveStatic(req, res)))
+  server.once('close', () => {
+    void api.close().catch(() => console.error('Codex shutdown failed; the owned connection may still be reserved.'))
+  })
   server.requestTimeout = 30000
   return server
 }

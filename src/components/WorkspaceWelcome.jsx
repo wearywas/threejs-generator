@@ -2,7 +2,7 @@ import React from 'react'
 import './welcome.css'
 
 /** First-run entry points for an empty asset viewport. */
-export default function WorkspaceWelcome({ onBrowseTemplates, onConnectModel, disabled = false }) {
+export default function WorkspaceWelcome({ onBrowseTemplates, onConnectModel, disabled = false, codexAvailable = false }) {
   return (
     <section className="workspace-welcome" aria-label="Get started">
       <div className="workspace-welcome-content">
@@ -32,7 +32,7 @@ export default function WorkspaceWelcome({ onBrowseTemplates, onConnectModel, di
             >
               Connect a model
             </button>
-            <p>Requires an OpenAI or Anthropic API key. Usage is billed directly by your provider.</p>
+            <p>{codexAvailable ? 'Use an API key or experimental Codex connection. API usage is billed by your provider; Codex uses your account allowance.' : 'Requires an OpenAI or Anthropic API key. Usage is billed directly by your provider.'}</p>
           </div>
         </div>
       </div>

@@ -34,7 +34,9 @@ export default function GenerationProgress({ active = false, task, onCancelReque
         {progress.retryReason && <p className="text-xs text-neutral-300 break-words" role="status">
           <span className="font-medium">Why another request?</span> {progress.retryReason}
         </p>}
-        <p className="text-xs text-neutral-400">The request limit includes repairs; additional requests can incur API charges.</p>
+        <p className="text-xs text-neutral-400">{requests.provider === 'codex'
+          ? 'The request limit includes repairs; additional requests consume Codex allowance.'
+          : 'The request limit includes repairs; additional requests can incur API charges.'}</p>
       </>}
     </div>
     {onCancelRequest && <button type="button" className="shrink-0 text-helios-300 underline" onClick={onCancelRequest}>Cancel request</button>}

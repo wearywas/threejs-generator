@@ -26,6 +26,16 @@ afterEach(() => {
 const render = props => renderToStaticMarkup(<GenerationProgress {...props} />)
 
 describe('honest generation progress', () => {
+  it('describes Codex allowance while preserving request and repair accounting', () => {
+    transport.snapshot = { pending: 1, provider: 'codex' }
+    operation = generationProgress.start('creative', { maxAttempts: 3 })
+    operation.report('repair', { attempt: 2, repairAttempt: 1 })
+    const html = render()
+    expect(html).toContain('additional requests consume Codex allowance')
+    expect(html).not.toContain('API charges')
+    expect(html).toContain('Model request 2')
+    expect(html).toContain('Repair requests: 1 (included above)')
+  })
   it('shows elapsed time, real attempts and repair billing without percentages or streaming claims', () => {
     operation = generationProgress.start('creative', { maxAttempts: 3 })
     operation.report('model', { attempt: 1 })

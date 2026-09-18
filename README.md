@@ -2,7 +2,7 @@
 
 Turn text into editable Three.js. Export as GLB.
 
-A local, open-source workbench for generating 3D assets with an OpenAI or Anthropic model. The result is JavaScript you can inspect and edit—not just a mesh. Ask for editable controls, adjust the asset locally, and export it to Blender or your own Three.js project.
+A local, open-source workbench for generating 3D assets with an OpenAI or Anthropic model, or the opt-in experimental Codex connection. The result is JavaScript you can inspect and edit—not just a mesh. Ask for editable controls, adjust the asset locally, and export it to Blender or your own Three.js project.
 
 ## Video demo
 
@@ -31,9 +31,16 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and keep the terminal runnin
 2. Drag to orbit, scroll to zoom, and adjust its controls. These actions are local and free.
 3. Choose **Save to Library** to keep a named copy, or **Download GLB** to take it into Blender.
 
-To generate your own asset, open **Connect a model** or **Model settings**, select a provider/model, enter its API key, and save. Then describe your asset and select **Generate**.
+To generate your own asset, choose a connection:
 
-**AI requests are billed directly by your API provider.** ChatGPT/Claude subscriptions do not include API usage. A configured key indicator is not a paid connection test or a guarantee of model access. No `.env` file is required for browser-entered session keys; optional persistent server configuration is explained in the [user guide](docs/USER_GUIDE.md#models-keys-and-costs).
+| Connection | Setup | Usage |
+| --- | --- | --- |
+| OpenAI or Anthropic API | Open **Model settings**, select a provider/model, enter its API key and save. | Billed directly by that API provider; ChatGPT/Claude subscriptions do not include API usage. |
+| **Codex (experimental)** | Follow the [Codex setup guide](docs/CODEX_SETUP.md) to enable a supported local runtime, then sign in with ChatGPT through Model settings. | Uses available Codex allowance, not a separate API key. Account limits and model access apply. |
+
+Then describe your asset and select **Generate**. Connection/configuration indicators are not paid generation tests or guarantees of model access. No `.env` is required for browser-entered API session keys; optional persistent configuration is explained in the [user guide](docs/USER_GUIDE.md#models-keys-and-costs).
+
+Codex mode keeps the same UI, including AI Edit, animation requests, editable controls, Library and exports. It is disabled by default, currently live-tested on Windows with two exact CLI versions, and rejects unaudited versions rather than falling back to API billing. **Cloned this into Codex Desktop?** Start with the [copyable setup request and terminal steps](docs/CODEX_SETUP.md#start-from-a-cloned-repo-in-codex-desktop).
 
 ## What you can do
 
@@ -70,6 +77,7 @@ Open [http://127.0.0.1:5175](http://127.0.0.1:5175). Both demos have their own d
 ## Learn more
 
 - [User guide](docs/USER_GUIDE.md): keys, costs, controls, saving/recovery, imports, exports, batching and troubleshooting.
+- [Codex setup](docs/CODEX_SETUP.md): optional subscription-backed connection, Windows startup, supported runtimes and update troubleshooting.
 - [Development](docs/DEVELOPMENT.md): commands, tests, contribution conventions and local API integration.
 - [Architecture](docs/TECHNICAL_OVERVIEW.md) and [runtime safety](docs/ISOLATED_RUNTIME.md).
 - [Changelog](CHANGELOG.md) and [release checklist](docs/RELEASING.md).
