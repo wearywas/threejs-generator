@@ -12,13 +12,15 @@ The prompt field always generates custom code. It does not try to fit your descr
 
 ## Models, keys and costs
 
-Open **Model settings** in the header:
+There are two connection types: **OpenAI/Anthropic API keys** with separate provider billing, and opt-in **Codex (experimental)** with managed ChatGPT sign-in and available Codex allowance. Codex setup requires a supported local runtime; follow [Codex setup](CODEX_SETUP.md), including the walkthrough for a repo opened in Codex Desktop. It retains the same asset workflow and never silently falls back to API keys.
+
+For API-key mode, open **Model settings** in the header:
 
 1. Choose **OpenAI** or **Anthropic**.
 2. Use the model shown, or enter a model ID available to your API account. A blank model field uses the server's task defaults.
 3. Enter a key for that provider and select **Save settings**.
 
-Green means a key is configured for the selected provider, through the dialog or the server environment. Red means no key is configured. The masked saved-key indicator confirms a key is present without returning the stored secret to the browser. Saving settings does **not** make a paid test request or verify that the key/model works.
+In API-key mode, green means a key is configured for the selected provider, through the dialog or the server environment. Red means no key is configured. The masked saved-key indicator confirms a key is present without returning the stored secret to the browser. Saving settings does **not** make a paid test request or verify that the key/model works. In Codex mode, green means managed authentication was detected; it does not guarantee model access or remaining allowance.
 
 App defaults are `claude-fable-5-1` for Anthropic and `gpt-6-astra` for OpenAI. These are configurable defaults, not a promise of provider availability. Use an accessible model ID if your provider rejects the default. There is no silent provider/model fallback or local inference backend.
 
@@ -27,7 +29,8 @@ App defaults are `claude-fable-5-1` for Anthropic and `gpt-6-astra` for OpenAI. 
 | Method | Lifetime | Where the key is kept |
 | --- | --- | --- |
 | Model settings | Until one hour idle, server restart, or **Forget session key** | Local Node server memory; briefly in the browser input/request, never saved in browser storage |
-| Root `.env` or server process environment | Across server restarts until removed | Your local configuration, outside the public source copy |
+| Root `.env` | Loaded on each server start until removed | Your local configuration, outside the public source copy |
+| Server process environment | While supplied by the launching terminal/system; terminal-only settings must be repeated in a new terminal | Local process configuration, outside browser storage |
 
 For persistence, copy [`.env.example`](../.env.example) to a new `.env` in the project root, enter your keys, and restart. Do not overwrite existing configuration without reviewing it, and never commit/share a populated `.env`. Use `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` for new configuration.
 
@@ -35,9 +38,9 @@ For persistence, copy [`.env.example`](../.env.example) to a new `.env` in the p
 
 A session key overrides the environment key for the same provider. **Forget session key** removes only that override: an environment key can keep the indicator green. To remove it, edit your local configuration and restart. Reconnect through Model settings after a session expires.
 
-### Which actions cost API credits?
+### Which actions use a model?
 
-| Action | Provider request? |
+| Action | Model request? |
 | --- | --- |
 | Generate, AI Edit, Add editable controls, Add Animation | Yes |
 | Load examples/library assets, move the camera, change sliders or textures, Re-run code | No |
@@ -45,7 +48,7 @@ A session key overrides the environment key for the same provider. **Forget sess
 
 AI actions send the prompt and relevant context/code to your selected provider through the local server. Saved examples may be selected as prompt context for later generations. Don't include private source or data you do not want sent to that provider. Library records and key configuration are separate.
 
-Code failures can trigger bounded repair/regeneration requests, which may cost additional credits. Provider errors such as invalid keys, quota exhaustion, refusal or incomplete responses are surfaced without silently switching providers. **Cancel request** stops local work and attempts to cancel upstream work, but cannot guarantee a refund for computation already performed. API access and billing are separate from ChatGPT/Claude subscriptions.
+Code failures can trigger bounded repair/regeneration requests, which may use additional API credits or Codex allowance according to the selected connection. Provider errors such as invalid keys, quota exhaustion, refusal or incomplete responses are surfaced without silently switching providers. **Cancel request** stops local work and attempts to cancel upstream work, but cannot recover usage already consumed. OpenAI/Anthropic API billing remains separate from ChatGPT/Claude subscriptions; choosing Codex does not convert a subscription into API credits. Token reports are not a dollar price or remaining-allowance meter.
 
 ## Generate, edit and add controls
 
@@ -121,7 +124,7 @@ Animation, unsafe custom behavior and order-dependent rendering can leave the wh
 
 ## Troubleshooting
 
-- **Green key indicator, failed generation:** verify provider, model ID, API access and billing. Green means configured, not authenticated. Environment changes need a server restart.
+- **Green key indicator, failed generation:** in API-key mode, verify provider, model ID, API access and billing. Green means configured, not authenticated. For Codex, see [connection troubleshooting](CODEX_SETUP.md#troubleshooting). Environment changes need a server restart.
 - **Empty Library after changing ports/computers:** return to the old origin/profile, export a JSON backup, then import it at the new origin.
 - **Old model stays visible during an edit:** replacements are prepared separately. Keeping the old model after a failure/cancellation is intentional.
 - **Export ignores code edits:** Re-run successfully first. Use **Copy draft** for unapplied text.

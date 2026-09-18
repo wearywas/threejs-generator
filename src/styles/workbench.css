@@ -59,7 +59,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dialog-heading p { margin-top: 5px; font-size: 13px; color: var(--studio-muted); }
 .icon-button { width: 32px; height: 32px; flex-shrink: 0; border-radius: 5px; color: var(--studio-muted); font-size: 24px; line-height: 1; }
 .icon-button:hover { background: #303438; color: white; }
-.settings-fields { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 16px; align-items: end; }
+.settings-fields { display: grid; grid-template-columns: var(--settings-provider-width, 140px) minmax(0, 1fr); gap: 16px; align-items: end; }
 .settings-key { grid-column: 1 / -1; }
 .batch-dialog-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .batch-dialog-viewport { flex: 1; min-width: 0; position: relative; }

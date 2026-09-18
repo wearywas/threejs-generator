@@ -6,7 +6,7 @@ Maintainer map of the current application. See [README](../README.md) for setup,
 
 React 18, Vite 8, Three.js **0.169.0**, plain JavaScript/JSX, Tailwind 3, Zod, and Vitest. Node requirements and commands are defined in [package.json](../package.json). This is a loopback local application, not a public multi-user service.
 
-The main prompt has one code-generation flow. Anthropic or OpenAI returns a `createAsset` factory through the local Node API. Generated source runs in an isolated browser Worker; the editor receives data and rendered frames, not generated Three objects or callbacks.
+The main prompt has one code-generation flow. Anthropic, OpenAI, or the opt-in experimental Codex connection returns a `createAsset` factory through the local Node API. Generated source runs in an isolated browser Worker; the editor receives data and rendered frames, not generated Three objects or callbacks.
 
 Two other starting points need no model request: seven curated presets in [builtinTemplates.js](../src/services/builtinTemplates.js), and shipped generated examples indexed by [generatedStarters.js](../src/services/generatedStarters.js). Curated presets use trusted repository generators on the main thread; generated examples use the same isolated route as newly generated or imported source. Neither is an automatic fallback after a provider error.
 
@@ -18,6 +18,7 @@ Internal document modes remain `curated` (validated generator spec), `creative` 
 | Atomic asset operations and React subscription | [assetActions.js](../src/runtime/assetActions.js), [assetWorkspace.js](../src/runtime/assetWorkspace.js), [useAssetWorkspace.js](../src/hooks/useAssetWorkspace.js) |
 | Model tasks, repair policy, progress | [generationService.js](../src/api/generationService.js), [creativeFailure.js](../src/api/creativeFailure.js), [generationProgress.js](../src/api/generationProgress.js) |
 | Browser transport and local API | [llmClient.js](../src/api/llmClient.js), [server/api.js](../server/api.js), [server/providers.js](../server/providers.js) |
+| Experimental Codex connection | [adapter.js](../server/codex/adapter.js), [policy.js](../server/codex/policy.js), [rpc.js](../server/codex/rpc.js), [taskFormats.js](../server/codex/taskFormats.js) |
 | Generated runtime | [CodeSandbox.js](../src/runtime/CodeSandbox.js), [isolated/client.js](../src/runtime/isolated/client.js), [isolated/worker.js](../src/runtime/isolated/worker.js) |
 | Curated runtime | [AssetFactory.js](../src/runtime/AssetFactory.js), [generators](../src/generators), [assetSpec.js](../src/schemas/assetSpec.js) |
 | Saved inputs and recovery | [assetDocument.js](../src/services/assetDocument.js), [generationLibrary.js](../src/services/generationLibrary.js), [workspaceRecovery.js](../src/services/workspaceRecovery.js) |
@@ -27,7 +28,7 @@ Internal document modes remain `curated` (validated generator spec), `creative` 
 
 1. `assetActions.generate()` selects an explicit seed, snapshots default texture inputs, classifies the asset family, and retrieves up to three relevant saved examples.
 2. `generationService` builds the prompt and calls `llmClient`, which sends a non-streaming request to `/api/message` using the local session cookie and CSRF token.
-3. `server/providers.js` calls the fixed Anthropic Messages or OpenAI Responses endpoint using Node's `fetch`. Anthropic responses stream into a server-side buffer so HTTP headers and keepalive events can arrive while the model is generating. `server/anthropicStream.js` retains visible text and model/usage metadata, ignores thinking content, and requires a terminal `message_stop`. The browser still receives one complete JSON response. OpenAI uses its existing non-streaming Responses request. Refusals, incomplete output, abnormal completion, empty output, malformed streams and interrupted streams are rejected before returning text. There are no retries or silent provider/model changes.
+3. In API-key mode, `server/providers.js` calls the fixed Anthropic Messages or OpenAI Responses endpoint using Node's `fetch`. Anthropic responses stream into a server-side buffer so HTTP headers and keepalive events can arrive while the model is generating. `server/anthropicStream.js` retains visible text and model/usage metadata, ignores thinking content, and requires a terminal `message_stop`. The browser still receives one complete JSON response. OpenAI uses its existing non-streaming Responses request. In Codex mode, the private adapter sends the request through its owned stdio App Server process and accepts only a successful terminal final answer. Refusals, incomplete output, abnormal completion, empty output, malformed streams and interrupted streams are rejected before returning text. The transport does not retry or silently change provider/model.
 4. The client normalizes the response and executes it through `CodeSandbox.js`, an alias for the isolated client. Runtime metadata includes the geometric critic's advisory notes. The critic does not reject assets or trigger retries; factory validation and the triangle budget can reject them.
 5. Only a complete document/runtime candidate replaces the current asset. Code failures can use the bounded repair/regeneration policy, normally within three total attempts. API failures and cancellation exit immediately. Conversion, animation, and editing use the same service and runtime boundary.
 
@@ -38,6 +39,8 @@ The [shared runtime prompt](../src/prompts/runtimeContract.js) applies to code-e
 Few-shot selection is browser-library dependent. Creative and procedural records are ranked by family/prompt relevance, with complete-source limits of 12,000 characters per example and 24,000 total. These are selection checks, not proof that saved code is high quality. An empty library changes the model context.
 
 ### Local API and credentials
+
+The optional Codex adapter uses a separate application-owned managed ChatGPT profile and ephemeral threads in empty temporary directories. It does not reuse the Desktop conversation or copy normal Codex credentials/configuration. Exact-version checks, an OS-variable-only child environment, effective feature/integration checks and explicit empty tool environments restrict the generation process. Source/configuration checks are not binary attestation or a general OS-sandbox guarantee. Keep the dedicated profile free of externally added instructions/integrations; startup inventories are not lifetime guarantees if another process modifies it. The browser-generated-code boundary remains unchanged. See [setup](CODEX_SETUP.md) and [maintenance](DEVELOPMENT.md#experimental-codex-provider).
 
 [vite.config.js](../vite.config.js) installs the shared API in development and preview; [server/start.js](../server/start.js) serves `dist` and that API for `npm start`. Default bindings are `127.0.0.1:5173` for development and `127.0.0.1:4173` for preview/start. `PORT` overrides the standalone server port.
 
@@ -52,11 +55,12 @@ The API checks loopback Host/port and allowed Origin, requires Origin plus CSRF 
 | `GET /api/health`, `/api/generators`, `/api/generator/:name/schema` | Health and curated generator discovery; no model call |
 | `GET /api/session` | Create/refresh session; return public settings and CSRF token, never the key |
 | `POST /api/settings` | Select provider/model, set or forget a session key |
+| `POST /api/codex/connect`, `/api/codex/login` | Opt-in same-origin connection check / explicit managed sign-in; no model turn |
 | `POST /api/message` | Task, system prompt, text messages, bounded output budget; return normalized text/model/usage |
 | `POST /api/generate` | Companion prompt-to-code endpoint; returns source and metadata, does not execute or batch it |
 | `POST /api/asset/code` | Authenticated request returns 501; no standalone curated-source API |
 
-Companion clients must be explicitly allowed through `LLM_ALLOWED_ORIGINS` (comma-separated exact local HTTP origins). Use the same loopback hostname across apps for same-site cookies, fetch the session with credentials included, and include `X-CSRF-Token` plus JSON content type on POST. Generation API errors are marked non-retryable. Cancel aborts the browser request and disconnect cancellation aborts upstream work; this cannot undo provider work or charges already incurred.
+Companion clients must be explicitly allowed through `LLM_ALLOWED_ORIGINS` (comma-separated exact local HTTP origins). Use the same loopback hostname across apps for same-site cookies, fetch the session with credentials included, and include `X-CSRF-Token` plus JSON content type on POST. Codex routes and requests additionally require the app's own origin, regardless of companion allowlisting. Generation API errors are marked non-retryable. Cancel aborts the browser request and disconnect cancellation aborts upstream work; this cannot undo provider work, charges or allowance already consumed.
 
 ## Documents, ownership, and recovery
 

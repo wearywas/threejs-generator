@@ -37,6 +37,14 @@ Open `http://127.0.0.1:4173` in a fresh browser profile/context. Confirm:
 
 Record the candidate version/hash, OS, Node/browser/Blender versions, exact command outcomes, audit date and remaining limitations. A local Windows run does not prove Linux CI, every browser or every GLB importer works.
 
+### Optional Codex connection
+
+- Rehearse [Codex setup](CODEX_SETUP.md) using normal `npm run dev` and built `npm start`, not a private launcher. Verify the opt-in variables reach the server, disabled mode stays unchanged, and no key is required.
+- Use an isolated empty app-profile location for no-login rehearsals, not an account credential copy. Verify signed-out UI, managed-login action availability and no model request on Connect. Test missing/unaudited runtime behavior separately through regressions.
+- Keep the documented supported CLI versions aligned with `server/codex/policy.js`. A Desktop update may change both path and protocol; do not auto-accept it or relax capability checks.
+- Treat real sign-in and generation as separately authorized usage. Verify provider metadata and no API-key fallback. Keep account identifiers, callback URLs and the dedicated authentication profile out of release files/screenshots.
+- State OS/live-test limits and experimental status; do not promise unlimited generations, an allowance estimate, or support for every future Codex release.
+
 ## Demo and publication
 
 1. Follow the README on another machine to catch undocumented setup assumptions.

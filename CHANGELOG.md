@@ -2,6 +2,7 @@
 
 ## Unreleased — first public release
 
+- Opt-in experimental Codex connection with separate managed ChatGPT sign-in, available Codex allowance, exact-runtime compatibility checks, and the existing Generate/edit/controls/animation workflow. OpenAI/Anthropic API-key mode remains available. See [setup and limitations](docs/CODEX_SETUP.md).
 - Unified prompt-to-code workflow with configurable OpenAI and Anthropic providers through a loopback Node server.
 - Isolated generated-code execution, rendering, analysis and GLB export, with bounded execution and cancellation.
 - Generated starters and maintained procedural templates available without an API key.

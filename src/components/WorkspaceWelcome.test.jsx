@@ -12,6 +12,12 @@ function buttonsIn(element) {
 }
 
 describe('WorkspaceWelcome', () => {
+  it('offers the experimental connection when available without changing the free examples claim', () => {
+    const html = renderToStaticMarkup(<WorkspaceWelcome codexAvailable />)
+    expect(html).toContain('API key or experimental Codex connection')
+    expect(html).not.toContain('Requires an OpenAI or Anthropic API key')
+    expect(html).toContain('No API key or credits needed.')
+  })
   it('explains the text-to-editable-Three.js-to-GLB workflow with a no-key starting point', () => {
     const html = renderToStaticMarkup(<WorkspaceWelcome />)
     const heading = html.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] || ''

@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useSyncExternalStore } from 'react'
 import PromptInput from './PromptInput'
 import ProviderSettings, { RequestStatus } from './ProviderSettings'
 import PreviewCanvas from './PreviewCanvas'
 import SpecEditor from './SpecEditor'
 import ParameterInspector from './ParameterInspector'
-import DynamicParameterInspector, { hasAnimation } from './DynamicParameterInspector'
+import DynamicParameterInspector from './DynamicParameterInspector'
 import ExportPanel from './ExportPanel'
 import CodeEditor from './CodeEditor'
 import GenerationLibrary from './GenerationLibrary'
@@ -22,8 +22,13 @@ import { saveGeneration } from '../services/generationLibrary'
 import { createSeed } from '../services/assetDocument'
 import { captureSaveSnapshot } from './assetCapture'
 import { normalizeCreativeCode } from '../runtime/CodeSandbox'
+import { llmClient } from '../api/llmClient'
+
+const codexActionExplanation = 'Codex (experimental) supports Generate, Add editable controls, AI Edit, and Add Animation. Model requests use your Codex allowance. Local code editing, Re-run, sliders, and export do not make model requests.'
 
 export default function App() {
+  const modelSettings = useSyncExternalStore(llmClient.subscribe, llmClient.getSnapshot, llmClient.getSnapshot)
+  const codexMode = modelSettings.provider === 'codex'
   const [uncapTriCount, setUncapTriCount] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [libraryTab, setLibraryTab] = useState('saved')
@@ -56,7 +61,6 @@ export default function App() {
   const converting = pending === 'convert'
   const addingAnimation = pending === 'animate'
   const editing = pending === 'edit'
-  const codeHasAnimation = hasAnimation(document?.code)
   const parameterStatus = pending === 'parameters' && (
     <span role="status" aria-label="Parameter update status" className="flex items-center gap-2 whitespace-nowrap text-xs normal-case tracking-normal text-gray-400">
       Updating...
@@ -191,12 +195,13 @@ export default function App() {
           <div className="viewport-toolbar"><span title={originalPrompt}>{originalPrompt}</span><span>Drag to orbit · Scroll to zoom</span></div>
           <div className="viewport-canvas">
           {asset ? <PreviewCanvas ref={previewCanvasRef} asset={asset} continuityKey={current?.sourceRevision} /> :
-            <WorkspaceWelcome onBrowseTemplates={() => openLibrary('templates')} onConnectModel={() => setShowModelSettings(true)} disabled={busy} />}
+            <WorkspaceWelcome onBrowseTemplates={() => openLibrary('templates')} onConnectModel={() => setShowModelSettings(true)} disabled={busy} codexAvailable={modelSettings.codexAvailable} />}
           </div>
         </section>
 
         {/* Right Panel - scrollable container */}
         <aside className="asset-inspector custom-scrollbar" aria-label="Asset inspector">
+          {codexMode && <p id="codex-action-support" className="px-4 py-2 text-xs text-gray-400">{codexActionExplanation}</p>}
           {document && <RecoveryStatus status={recovery.status} />}
           {hasDraft && (
             <p className="px-4 py-2 text-xs text-amber-300" role="status">
@@ -280,19 +285,20 @@ export default function App() {
                       onClick={handleOpenEdit}
                       disabled={loading || editing}
                       className="btn-tool"
-                      title="Edit with AI"
+                      title={codexMode ? codexActionExplanation : 'Edit with AI'}
+                      aria-describedby={codexMode ? 'codex-action-support' : undefined}
                     >
                       AI Edit
                     </button>
-                    {!codeHasAnimation && (
-                      <button
-                        onClick={handleAddAnimation}
-                        disabled={addingAnimation || loading}
-                        className="btn-tool"
-                      >
-                        {addingAnimation ? 'Adding...' : 'Add Animation'}
-                      </button>
-                    )}
+                    <button
+                      onClick={handleAddAnimation}
+                      disabled={addingAnimation || loading}
+                      className="btn-tool"
+                      title={codexMode ? codexActionExplanation : 'Add or enhance animation with AI'}
+                      aria-describedby={codexMode ? 'codex-action-support' : undefined}
+                    >
+                      {addingAnimation ? 'Adding...' : 'Add Animation'}
+                    </button>
                     <button
                       onClick={() => handleCodeRerun(generatedCode)}
                       className="btn-tool"
@@ -340,7 +346,8 @@ export default function App() {
                           onClick={handleOpenEdit}
                           disabled={loading || editing}
                           className="btn-tool"
-                          title="Edit with AI"
+                          title={codexMode ? codexActionExplanation : 'Edit with AI'}
+                          aria-describedby={codexMode ? 'codex-action-support' : undefined}
                         >
                           AI Edit
                         </button>
